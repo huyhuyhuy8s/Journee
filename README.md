@@ -42,3 +42,7 @@ We are a group of two final year students of HCMC University of Technology and E
 ## Contact Information
 
 Mail: [leminhhuy0404.work@gmail.com](mailto:leminhhuy0404.work@gmail.com)
+
+## Special Thanks
+
+- Used images for demonstration by [@astro_lover04](https://www.instagram.com/astro_lover04/)
