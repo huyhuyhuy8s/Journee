@@ -6,10 +6,10 @@ Journee is a mobile-first social journaling and location app that turns real‑t
 
 We are a group of two final year students of HCMC University of Technology and Education
 
-| Member             | Expertise                                                   |
-| ------------------ | ----------------------------------------------------------- |
-| Lê Minh Huy        | Full-stack Developer in Web Development with Node.js, React |
-| Nguyễn Lê Tùng Chi | UI/UX Designer in Mobile Development                        |
+| Member | Expertise |
+| --- | --- |
+| Lê Minh Huy | Full-stack Developer in Web Development with Node.js, React |
+| Nguyễn Lê Tùng Chi | UI/UX Designer in Mobile Development |
 
 ## Why this matters, and how we’re different
 
