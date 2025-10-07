@@ -50,6 +50,127 @@ const darkShadows = {
 
 // we're adding some example sub-themes for you to show how they are done, "success" "warning", "error":
 
+// custom color palette provided by the project owner. These are added as
+// named tokens so you can reference them e.g. $text, $background, $primary
+// etc. from components or via useTheme/useTokens.
+const userPalette = {
+  // Các màu đơn lẻ trong 'dark' và 'light' giờ đã được chuyển thành các thuộc tính riêng bên dưới,
+  // chỉ giữ lại background và secondary vì chúng không cần 12 bước màu.
+  dark: {
+    background: "hsla(204, 35%, 6%, 1)",
+    secondary: "hsla(229, 53%, 34%, 1)",
+  },
+  light: {
+    background: "hsla(204, 67%, 98%, 1)",
+    secondary: "hsla(197, 69%, 34%, 1)",
+  },
+
+  // 1. PRIMARY (Base: hsla(203, 64%, 74%, 1))
+  // Dải màu xanh dương nhạt
+  primary: {
+    palette: {
+      dark: [
+        "hsla(203, 64%, 74%, 1)", // 0 - Giá trị gốc
+        "hsla(203, 64%, 76%, 1)",
+        "hsla(203, 64%, 78%, 1)",
+        "hsla(203, 64%, 80%, 1)",
+        "hsla(203, 64%, 83%, 1)",
+        "hsla(203, 64%, 85%, 1)",
+        "hsla(203, 64%, 87%, 1)",
+        "hsla(203, 64%, 88%, 1)",
+        "hsla(203, 64%, 90%, 1)",
+        "hsla(203, 64%, 90%, 1)",
+        "hsla(203, 50%, 90%, 1)", // 10
+        "hsla(203, 50%, 95%, 1)", // 11
+      ],
+      light: [
+        "hsla(203, 64%, 74%, 1)", // 0 - Giá trị gốc
+        "hsla(203, 64%, 66%, 1)",
+        "hsla(203, 64%, 58%, 1)",
+        "hsla(203, 64%, 51%, 1)",
+        "hsla(203, 64%, 43%, 1)",
+        "hsla(203, 64%, 35%, 1)",
+        "hsla(203, 64%, 28%, 1)",
+        "hsla(203, 64%, 20%, 1)",
+        "hsla(203, 64%, 12%, 1)",
+        "hsla(203, 64%, 10%, 1)",
+        "hsla(203, 50%, 5%, 1)",  // 10
+        "hsla(203, 50%, 10%, 1)", // 11
+      ],
+    },
+  },
+
+  // 2. TEXT (Dark Base: hsla(204, 55%, 92%, 1) | Light Base: hsla(204, 38%, 5%, 1))
+  // Dải màu cho văn bản, làm mờ từ màu gốc (Text-0 là màu chuẩn)
+  text: {
+    palette: {
+      dark: [
+        "hsla(204, 55%, 92%, 1)", // 0 - Màu văn bản chính
+        "hsla(204, 55%, 83%, 1)",
+        "hsla(204, 55%, 74%, 1)",
+        "hsla(204, 55%, 65%, 1)",
+        "hsla(204, 55%, 56%, 1)",
+        "hsla(204, 55%, 47%, 1)",
+        "hsla(204, 55%, 38%, 1)",
+        "hsla(204, 55%, 29%, 1)",
+        "hsla(204, 55%, 20%, 1)",
+        "hsla(204, 55%, 10%, 1)",
+        "hsla(204, 50%, 5%, 1)",  // 10
+        "hsla(204, 50%, 10%, 1)", // 11
+      ],
+      light: [
+        "hsla(204, 38%, 5%, 1)",  // 0 - Màu văn bản chính
+        "hsla(204, 38%, 14%, 1)",
+        "hsla(204, 38%, 23%, 1)",
+        "hsla(204, 38%, 32%, 1)",
+        "hsla(204, 38%, 41%, 1)",
+        "hsla(204, 38%, 50%, 1)",
+        "hsla(204, 38%, 59%, 1)",
+        "hsla(204, 38%, 68%, 1)",
+        "hsla(204, 38%, 77%, 1)",
+        "hsla(204, 38%, 90%, 1)",
+        "hsla(204, 50%, 90%, 1)", // 10
+        "hsla(204, 50%, 95%, 1)", // 11
+      ],
+    },
+  },
+
+  // 3. ACCENT (Dark Base: hsla(246, 52%, 54%, 1) | Light Base: hsla(168, 88%, 43%, 1))
+  // Dải màu tím (dark) và xanh ngọc (light)
+  accent: {
+    palette: {
+      dark: [
+        "hsla(246, 52%, 54%, 1)", // 0 - Giá trị gốc
+        "hsla(246, 52%, 59%, 1)",
+        "hsla(246, 52%, 64%, 1)",
+        "hsla(246, 52%, 69%, 1)",
+        "hsla(246, 52%, 74%, 1)",
+        "hsla(246, 52%, 79%, 1)",
+        "hsla(246, 52%, 83%, 1)",
+        "hsla(246, 52%, 86%, 1)",
+        "hsla(246, 52%, 90%, 1)",
+        "hsla(246, 52%, 90%, 1)",
+        "hsla(246, 50%, 90%, 1)", // 10
+        "hsla(246, 50%, 95%, 1)", // 11
+      ],
+      light: [
+        "hsla(168, 88%, 43%, 1)", // 0 - Giá trị gốc
+        "hsla(168, 88%, 39%, 1)",
+        "hsla(168, 88%, 34%, 1)",
+        "hsla(168, 88%, 30%, 1)",
+        "hsla(168, 88%, 25%, 1)",
+        "hsla(168, 88%, 21%, 1)",
+        "hsla(168, 88%, 16%, 1)",
+        "hsla(168, 88%, 12%, 1)",
+        "hsla(168, 88%, 10%, 1)",
+        "hsla(168, 88%, 10%, 1)",
+        "hsla(168, 50%, 5%, 1)",  // 10
+        "hsla(168, 50%, 10%, 1)", // 11
+      ],
+    },
+  },
+};
+
 const builtThemes = createThemes({
   componentThemes: defaultComponentThemes,
 
