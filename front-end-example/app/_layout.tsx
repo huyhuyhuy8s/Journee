@@ -13,6 +13,7 @@ SplashScreen.preventAutoHideAsync();
 // Create a separate component that uses the theme context
 const AppContent = () => {
   const theme = useThemeValue();
+  console.log("theme", theme);
 
   return (
     <SafeAreaProvider>

@@ -117,7 +117,7 @@ const _Layout = () => {
           backgroundColor: theme.color1.val,
           paddingHorizontal: 30,
           paddingBlockStart: 100,
-          height: 70,
+          height: 80,
           position: "absolute",
           overflow: "hidden",
           borderTopWidth: 1,

@@ -20,7 +20,7 @@ const Newsfeed = () => {
 
   return (
     <SafeAreaVieww>
-      <YStack bg={theme.color1} height="100%">
+      <YStack bg={theme.text1} height="100%">
         <HeaderNav />
       </YStack>
     </SafeAreaVieww>
