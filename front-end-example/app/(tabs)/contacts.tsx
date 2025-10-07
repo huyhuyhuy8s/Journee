@@ -1,14 +1,13 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text } from "react-native";
 import React from "react";
+import SafeAreaVieww from "@/components/SafeAreaVieww";
 
 const contacts = () => {
   return (
-    <View>
+    <SafeAreaVieww>
       <Text>contacts</Text>
-    </View>
+    </SafeAreaVieww>
   );
 };
 
 export default contacts;
-
-const styles = StyleSheet.create({});

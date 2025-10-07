@@ -6,8 +6,42 @@ import { useEffect } from "react";
 import { StatusBar } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { PortalProvider, TamaguiProvider } from "tamagui";
+import { ThemeContextProvider, useThemeValue } from "./ThemeContext";
 
 SplashScreen.preventAutoHideAsync();
+
+// Create a separate component that uses the theme context
+const AppContent = () => {
+  const theme = useThemeValue();
+
+  return (
+    <SafeAreaProvider>
+      <TamaguiProvider config={tamaguiConfig} defaultTheme={theme}>
+        <PortalProvider>
+          <ToastProvider>
+            <StatusBar />
+            <Stack>
+              <Stack.Screen
+                name="(tabs)"
+                options={{
+                  title: "Home",
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="login"
+                options={{
+                  title: "Login",
+                  headerShown: false,
+                }}
+              />
+            </Stack>
+          </ToastProvider>
+        </PortalProvider>
+      </TamaguiProvider>
+    </SafeAreaProvider>
+  );
+};
 
 export default () => {
   const [fontLoaded] = useFonts({
@@ -26,32 +60,8 @@ export default () => {
   }
 
   return (
-    <SafeAreaProvider>
-      <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
-        <PortalProvider>
-          <ToastProvider>
-            <StatusBar />
-            <Stack>
-              <Stack.Screen
-                name="(tabs)"
-                options={{
-                  title: "Home",
-                  // statusBarHidden: true,
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="login"
-                options={{
-                  title: "Login",
-                  // statusBarHidden: true,
-                  headerShown: false,
-                }}
-              />
-            </Stack>
-          </ToastProvider>
-        </PortalProvider>
-      </TamaguiProvider>
-    </SafeAreaProvider>
+    <ThemeContextProvider>
+      <AppContent />
+    </ThemeContextProvider>
   );
 };

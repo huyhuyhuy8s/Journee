@@ -1,11 +1,12 @@
-import { Text, View } from "react-native";
+import { Text } from "react-native";
 import React from "react";
+import SafeAreaVieww from "@/components/SafeAreaVieww";
 
 const Map = () => {
   return (
-    <View>
+    <SafeAreaVieww>
       <Text>Map</Text>
-    </View>
+    </SafeAreaVieww>
   );
 };
 

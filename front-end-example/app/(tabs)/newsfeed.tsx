@@ -1,7 +1,7 @@
 import React from "react";
-import { useTheme, XStack, YStack } from "tamagui";
+import { Button, useTheme, XStack, YStack } from "tamagui";
 import { Bell, MapPinned, Search } from "@tamagui/lucide-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import SafeAreaVieww from "@/components/SafeAreaVieww";
 
 const HeaderNav = () => {
   const theme = useTheme();
@@ -16,12 +16,14 @@ const HeaderNav = () => {
 };
 
 const Newsfeed = () => {
+  const theme = useTheme();
+
   return (
-    <SafeAreaView>
-      <YStack>
+    <SafeAreaVieww>
+      <YStack bg={theme.color1} height="100%">
         <HeaderNav />
       </YStack>
-    </SafeAreaView>
+    </SafeAreaVieww>
   );
 };
 
