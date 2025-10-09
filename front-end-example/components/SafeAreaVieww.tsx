@@ -5,7 +5,7 @@ const SafeAreaVieww = ({ children }: any) => {
   const theme = useTheme();
 
   return (
-    <SafeAreaView style={{ backgroundColor: theme.color1.val }}>
+    <SafeAreaView style={{ backgroundColor: theme.background.val }}>
       {children}
     </SafeAreaView>
   );

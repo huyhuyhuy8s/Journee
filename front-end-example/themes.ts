@@ -1,36 +1,6 @@
 import * as Colors from "@tamagui/colors";
 import { createThemes, defaultComponentThemes } from "@tamagui/theme-builder";
 
-// Bảng màu 12 bước trung lập (không đổi)
-const lightPalette = [
-  "hsla(198, 56%, 93%, 1)", // 0 - Giá trị GỐC (cho dark mode)
-  "hsla(198, 56%, 83%, 1)",
-  "hsla(198, 56%, 74%, 1)",
-  "hsla(198, 56%, 65%, 1)",
-  "hsla(198, 56%, 56%, 1)",
-  "hsla(198, 56%, 47%, 1)",
-  "hsla(198, 56%, 38%, 1)",
-  "hsla(198, 56%, 29%, 1)",
-  "hsla(198, 56%, 20%, 1)",
-  "hsla(198, 56%, 10%, 1)",
-  "hsla(198, 50%, 5%, 1)", // 10
-  "hsla(198, 50%, 10%, 1)", // 11
-];
-const darkPalette = [
-  "hsla(198, 56%, 7%, 1)", // 0 - Giá trị GỐC (cho light mode)
-  "hsla(198, 56%, 14%, 1)",
-  "hsla(198, 56%, 23%, 1)",
-  "hsla(198, 56%, 32%, 1)",
-  "hsla(198, 56%, 41%, 1)",
-  "hsla(198, 56%, 50%, 1)",
-  "hsla(198, 56%, 59%, 1)",
-  "hsla(198, 56%, 68%, 1)",
-  "hsla(198, 56%, 77%, 1)",
-  "hsla(198, 56%, 90%, 1)",
-  "hsla(198, 50%, 90%, 1)", // 10
-  "hsla(198, 50%, 95%, 1)", // 11
-];
-
 const lightShadows = {
   shadow1: "rgba(0,0,0,0.04)",
   shadow2: "rgba(0,0,0,0.08)",
@@ -65,8 +35,36 @@ const builtThemes = createThemes({
   base: {
     // Use the 12-step palettes defined above for base palettes
     palette: {
-      dark: darkPalette,
-      light: lightPalette,
+      // Bảng màu 12 bước trung lập (không đổi)
+
+      dark: [
+        "hsla(198, 56%, 93%, 1)", // 0 - Giá trị GỐC (cho dark mode)
+        "hsla(198, 56%, 83%, 1)",
+        "hsla(198, 56%, 74%, 1)",
+        "hsla(198, 56%, 65%, 1)",
+        "hsla(198, 56%, 56%, 1)",
+        "hsla(198, 56%, 47%, 1)",
+        "hsla(198, 56%, 38%, 1)",
+        "hsla(198, 56%, 29%, 1)",
+        "hsla(198, 56%, 20%, 1)",
+        "hsla(198, 56%, 10%, 1)",
+        "hsla(198, 50%, 5%, 1)", // 10
+        "hsla(198, 50%, 10%, 1)", // 11
+      ],
+      light: [
+        "hsla(198, 56%, 7%, 1)", // 0 - Giá trị GỐC (cho light mode)
+        "hsla(198, 56%, 14%, 1)",
+        "hsla(198, 56%, 23%, 1)",
+        "hsla(198, 56%, 32%, 1)",
+        "hsla(198, 56%, 41%, 1)",
+        "hsla(198, 56%, 50%, 1)",
+        "hsla(198, 56%, 59%, 1)",
+        "hsla(198, 56%, 68%, 1)",
+        "hsla(198, 56%, 77%, 1)",
+        "hsla(198, 56%, 90%, 1)",
+        "hsla(198, 50%, 90%, 1)", // 10
+        "hsla(198, 50%, 95%, 1)", // 11
+      ],
     },
 
     // Các token màu đơn lẻ (background, secondary) được đặt trong extra
@@ -82,6 +80,22 @@ const builtThemes = createThemes({
         ...Colors.yellow,
         ...lightShadows,
         shadowColor: lightShadows.shadow1,
+        transparent: "hsla(0,0%,0%,0)",
+        static1: "hsla(0, 0%, 0%, 0.5)", // Semi-transparent black
+        static2: "hsla(0, 0%, 94%, 1)", // Very light gray
+        static3: "hsla(0, 0%, 9%, 1)", // Very dark gray
+        static4: "hsla(0, 0%, 88%, 1)", // Light gray
+        static5: "hsla(160, 76%, 38%, 1)", // Green accent
+        static6: "hsla(0, 0%, 100%, 0.15)", // White 15% opacity
+        static7: "hsla(0, 0%, 100%, 0.1)", // White 10% opacity
+        static8: "hsla(0, 0%, 100%, 0.05)", // White 5% opacity
+        static9: "hsla(0, 0%, 100%, 0.3)", // White 30% opacity
+        static10: "hsla(0, 0%, 16%, 1)", // Dark gray
+        static11: "hsla(0, 0%, 100%, 0.03)", // White 3% opacity
+        static12: "hsla(0, 0%, 0%, 0.8)", // Black 80% opacity
+        static13: "hsla(0, 0%, 25%, 1)",
+        static14: "hsla(0, 0%, 100%, 0.2)",
+        static15: "hsla(0,0%,0%,0.5)",
       },
       dark: {
         // Giá trị GỐC từ bảng màu dark:
@@ -93,40 +107,25 @@ const builtThemes = createThemes({
         ...Colors.yellowDark,
         ...darkShadows,
         shadowColor: darkShadows.shadow1,
+        transparent: "hsla(0,0%,0%,0)",
+        static1: "hsla(0, 0%, 88%, 0.5)", // Light gray 50% opacity
+        static2: "hsla(0, 0%, 6%, 1)", // Very dark gray
+        static3: "hsla(0, 0%, 100%, 1)", // Pure white
+        static4: "hsla(0, 0%, 88%, 0.2)", // Light gray 20% opacity
+        static5: "hsla(160, 76%, 38%, 1)", // Green accent (same as dark)
+        static6: "hsla(0, 0%, 0%, 0.05)", // Black 5% opacity
+        static7: "hsla(0, 0%, 0%, 0.1)", // Black 10% opacity
+        static8: "hsla(0, 0%, 0%, 0.15)", // Black 15% opacity
+        static9: "hsla(0, 0%, 0%, 0.3)", // Black 30% opacity
+        static10: "hsla(0, 0%, 88%, 1)", // Light gray
+        static11: "hsla(0, 0%, 0%, 0.03)", // Black 3% opacity
+        static12: "hsla(0, 0%, 100%, 0.8)", // White 80% opacity
+        static13: "hsla(0,0%,92%,1)",
+        static14: "hsla(0,0%,0%,0.2)",
+        static15: "hsla(0,0%,100%,0.5)",
       },
     },
   },
-
-  // 1. PRIMARY (Base: hsla(201, 72%, 75%, 1) - giống nhau cho cả 2 mode)
-  // colorsToTheme: {
-  //   palette: {
-  //     dark: [
-  //       "hsla(201, 72%, 78%, 1)",
-  //       "hsla(201, 72%, 80%, 1)",
-  //       "hsla(201, 72%, 83%, 1)",
-  //       "hsla(201, 72%, 85%, 1)",
-  //       "hsla(201, 72%, 87%, 1)",
-  //       "hsla(201, 72%, 88%, 1)",
-  //       "hsla(201, 72%, 90%, 1)",
-  //       "hsla(201, 72%, 90%, 1)",
-  //       "hsla(201, 50%, 90%, 1)", // 10
-  //       "hsla(201, 50%, 95%, 1)", // 11
-  //     ],
-  //     light: [
-  //       "hsla(201, 72%, 66%, 1)",
-  //       "hsla(201, 72%, 58%, 1)",
-  //       "hsla(201, 72%, 51%, 1)",
-  //       "hsla(201, 72%, 43%, 1)",
-  //       "hsla(201, 72%, 35%, 1)",
-  //       "hsla(201, 72%, 28%, 1)",
-  //       "hsla(201, 72%, 20%, 1)",
-  //       "hsla(201, 72%, 12%, 1)",
-  //       "hsla(201, 72%, 10%, 1)",
-  //       "hsla(201, 50%, 5%, 1)", // 10
-  //       "hsla(201, 50%, 10%, 1)", // 11
-  //     ],
-  //   },
-  // },
 
   // 3. ACCENT (Dark Base: hsla(236, 55%, 55%, 1) | Light Base: hsla(168, 88%, 43%, 1))
   accent: {
@@ -159,6 +158,75 @@ const builtThemes = createThemes({
         "hsla(164, 92%, 5%, 1)", // 10
         "hsla(164, 92%, 10%, 1)", // 11
       ],
+    },
+  },
+
+  childrenThemes: {
+    static: {
+      palette: {
+        dark: [
+          "hsla(0, 0%, 0%, 0.5)",
+          "hsla(0, 0%, 94%, 1)",
+          "hsla(0, 0%, 9%, 1)",
+          "hsla(0, 0%, 88%, 1)",
+          "hsla(160, 76%, 38%, 1)",
+          "hsla(0, 0%, 100%, 0.15)",
+          "hsla(0, 0%, 100%, 0.1)",
+          "hsla(0, 0%, 100%, 0.05)",
+          "hsla(0, 0%, 100%, 0.3)",
+          "hsla(0, 0%, 16%, 1)",
+          "hsla(0, 0%, 100%, 0.03)",
+          "hsla(0, 0%, 0%, 0.8)",
+        ],
+        light: [
+          "hsla(0, 0%, 88%, 0.5)",
+          "hsla(0, 0%, 6%, 1)",
+          "hsla(0, 0%, 100%, 1)",
+          "hsla(0, 0%, 88%, 0.2)",
+          "hsla(160, 76%, 38%, 1)",
+          "hsla(0, 0%, 0%, 0.05)",
+          "hsla(0, 0%, 0%, 0.1)",
+          "hsla(0, 0%, 0%, 0.15)",
+          "hsla(0, 0%, 0%, 0.3)",
+          "hsla(0, 0%, 88%, 1)",
+          "hsla(0, 0%, 0%, 0.03)",
+          "hsla(0, 0%, 100%, 0.8)",
+        ],
+      },
+      template: "base",
+    },
+    primary: {
+      palette: {
+        dark: [
+          "hsla(201, 72%, 75%, 1)",
+          "hsla(201, 72%, 80%, 1)",
+          "hsla(201, 72%, 83%, 1)",
+          "hsla(201, 72%, 85%, 1)",
+          "hsla(201, 72%, 87%, 1)",
+          "hsla(201, 72%, 88%, 1)",
+          "hsla(201, 72%, 90%, 1)",
+          "hsla(201, 72%, 92%, 1)",
+          "hsla(201, 50%, 90%, 1)",
+          "hsla(201, 50%, 92%, 1)",
+          "hsla(201, 50%, 94%, 1)",
+          "hsla(201, 50%, 95%, 1)",
+        ],
+        light: [
+          "hsla(201, 72%, 75%, 1)",
+          "hsla(201, 72%, 58%, 1)",
+          "hsla(201, 72%, 51%, 1)",
+          "hsla(201, 72%, 43%, 1)",
+          "hsla(201, 72%, 35%, 1)",
+          "hsla(201, 72%, 28%, 1)",
+          "hsla(201, 72%, 20%, 1)",
+          "hsla(201, 72%, 15%, 1)",
+          "hsla(201, 72%, 10%, 1)",
+          "hsla(201, 50%, 8%, 1)",
+          "hsla(201, 50%, 5%, 1)",
+          "hsla(201, 50%, 3%, 1)",
+        ],
+      },
+      template: "base",
     },
   },
 });

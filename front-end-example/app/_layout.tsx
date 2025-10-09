@@ -4,9 +4,10 @@ import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
 import { StatusBar } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PortalProvider, TamaguiProvider } from "tamagui";
-import { ThemeContextProvider, useThemeValue } from "./ThemeContext";
+import { ThemeContextProvider, useThemeValue } from "@/contexts/ThemeContext";
+import { UserContextProvider } from "@/contexts/UserContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +32,13 @@ const AppContent = () => {
               />
               <Stack.Screen
                 name="login"
+                options={{
+                  title: "Login",
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="register"
                 options={{
                   title: "Login",
                   headerShown: false,
@@ -61,8 +69,10 @@ export default () => {
   }
 
   return (
-    <ThemeContextProvider>
-      <AppContent />
-    </ThemeContextProvider>
+    <UserContextProvider>
+      <ThemeContextProvider>
+        <AppContent />
+      </ThemeContextProvider>
+    </UserContextProvider>
   );
 };

@@ -18,21 +18,21 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "bcrypt": "latest",
-    "cors": "latest",
-    "cross-env": "latest",
-    "dotenv": "latest",
-    "express": "latest",
-    "express-async-errors": "latest",
-    "jsonwebtoken": "latest",
-    "mongoose": "latest"
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.2.3",
+    "express-async-errors": "^3.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.1"
   },
   "devDependencies": {
-    "@eslint/js": "latest",
-    "@stylistic/eslint-plugin-js": "latest",
-    "eslint": "latest",
-    "eslint-plugin-react": "latest",
-    "globals": "latest",
-    "supertest": "latest"
+    "@eslint/js": "^9.37.0",
+    "@stylistic/eslint-plugin-js": "^4.4.1",
+    "eslint": "^9.37.0",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.4.0",
+    "supertest": "^7.1.4"
   }
 }
