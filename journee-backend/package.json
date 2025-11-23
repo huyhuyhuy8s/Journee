@@ -1,0 +1,50 @@
+{
+  "name": "journee-backend",
+  "version": "1.0.0",
+  "description": "journee backend server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node -r NODE_ENV=production module-alias/register index.js",
+    "dev": "cross-env NODE_ENV=development node -r module-alias/register --watch index.js",
+    "build": "echo 'No build step required for Node.js'",
+    "lint": "eslint .",
+    "test": "NODE_ENV=test node --test"
+  },
+  "_moduleAliases": {
+    "@": ".",
+    "@config": "./config",
+    "@controllers": "./controllers",
+    "@middlewares": "./middlewares",
+    "@routes": "./routes",
+    "@utilities": "./utilities",
+    "@services": "./services"
+  },
+  "keywords": [
+    "journee"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-async-errors": "^3.1.1",
+    "firebase": "^12.5.0",
+    "firebase-admin": "^13.5.0",
+    "firestore": "^1.1.6",
+    "jsonwebtoken": "^9.0.2",
+    "module-alias": "^2.2.3",
+    "mongoose": "^8.19.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "@stylistic/eslint-plugin-js": "^4.4.1",
+    "eslint": "^9.37.0",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.4.0",
+    "supertest": "^7.1.4"
+  }
+}
