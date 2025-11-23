@@ -1,12 +1,12 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { authLogger } = require('../middlewares/logger');
-const { db } = require('../utilities/firebase');
+const { clientDb, adminDb } = require('@config/firebase');
 
 const { collection, addDoc, getDoc, getDocs, updateDoc, deleteDoc, doc } = require('firebase/firestore');
 
 // JWT secret (use environment variable in production)
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
+const JWT_SECRET = process.env.JWT_SECRET;
 // Helper function to generate JWT token
 const generateToken = (userId) => {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
@@ -15,7 +15,7 @@ const generateToken = (userId) => {
 const checkIsUserExist = async (userId) => {
   if (!userId) return false;
 
-  const allSettingsSnap = await getDocs(collection(db, 'userSettings'));
+  const allSettingsSnap = await getDocs(collection(clientDb, 'userSettings'));
   if (allSettingsSnap.docs && allSettingsSnap.docs.some(d => d.data().userId === userId)) {
     return false;
   }
@@ -41,7 +41,7 @@ const settingCreation = async (userId) => {
     updatedAt: new Date(),
   }
 
-  await addDoc(collection(db, 'userSettings'), userSettings);
+  await addDoc(collection(clientDb, 'userSettings'), userSettings);
 }
 
 const blacklistCreation = async (userId) => {
@@ -54,7 +54,7 @@ const blacklistCreation = async (userId) => {
     updatedAt: new Date(),
   }
 
-  await addDoc(collection(db, 'userBlacklists'), userBlacklist);
+  await addDoc(collection(clientDb, 'userBlacklists'), userBlacklist);
 }
 
 // Controller functions
@@ -67,7 +67,7 @@ const userController = {
         return res.status(400).json({ error: 'Name, email, and password are required' });
       }
 
-      const allUsersSnap = await getDocs(collection(db, 'users'));
+      const allUsersSnap = await getDocs(collection(clientDb, 'users'));
       if (allUsersSnap.docs.some(d => d.data().email === email)) {
         return res.status(409).json({ error: 'User already exists' });
       }
@@ -85,7 +85,7 @@ const userController = {
         lastLogin: new Date(),
       }
 
-      const ref = await addDoc(collection(db, 'users'), newUser);
+      const ref = await addDoc(collection(clientDb, 'users'), newUser);
 
       await settingCreation(ref.id);
       await blacklistCreation(ref.id);
@@ -98,7 +98,7 @@ const userController = {
   },
 
   getAllUsers: async (req, res) => {
-    const allUsersSnap = await getDocs(collection(db, 'users'));
+    const allUsersSnap = await getDocs(collection(clientDb, 'users'));
     const allUsers = allUsersSnap.docs.map(doc => ({
       id: doc.id,
       avatar: doc.data().avatar,
@@ -111,7 +111,7 @@ const userController = {
 
   getUserById: async (req, res) => {
     const userId = req.params.id;
-    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userDoc = await getDoc(doc(clientDb, 'users', userId));
 
     if (!userDoc.exists()) {
       return res.status(404).json({ error: 'User not found' });
@@ -128,7 +128,7 @@ const userController = {
 
   getCurrentUser: async (req, res) => {
     const userId = req.user.id;
-    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userDoc = await getDoc(doc(clientDb, 'users', userId));
 
     if (!userDoc.exists()) {
       return res.status(404).json({ error: 'User not found' });
@@ -150,10 +150,10 @@ const userController = {
         return res.status(400).json({ error: 'Email and password are required' });
       }
 
-      const allUsersSnap = await getDocs(collection(db, 'users'));
+      const allUsersSnap = await getDocs(collection(clientDb, 'users'));
       const userDoc = allUsersSnap.docs.find(d => d.data().email === email);
       if (!userDoc) {
-        return res.status(401).json({ error: 'Invalid credentials' });
+        return res.status(401).json({ error: 'There is no user with this email' });
       }
       await updateDoc(userDoc.ref, { lastLogin: new Date() });
 

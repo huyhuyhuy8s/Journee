@@ -1,4 +1,4 @@
-const { db } = require('../utilities/firebase');
+const { clientDb } = require("@config/firebase")
 
 const { collection, addDoc, getDoc, getDocs, updateDoc, deleteDoc, doc, query, where } = require('firebase/firestore');
 
@@ -6,13 +6,13 @@ const { arrayUnion } = require('firebase/firestore');
 
 const getDocJournalEntry = async (journalId, entryId) => {
   try {
-    const journalDocRef = doc(db, 'journals', journalId);
+    const journalDocRef = doc(clientDb, 'journals', journalId);
     const journalDoc = await getDoc(journalDocRef);
     if (!journalDoc.exists()) {
       return [];
     }
 
-    const entryRef = doc(db, 'entries', entryId)
+    const entryRef = doc(clientDb, 'entries', entryId)
     const entryDoc = await getDoc(entryRef);
     if (!entryDoc.exists()) {
       return [];
@@ -34,8 +34,8 @@ const journalController = {
   // Journal CRUD
   getAllJournals: async (req, res) => {
     try {
-      const allJournalsSnap = await getDocs(collection(db, 'journals'));
-      const allEntriesSnap = await getDocs(collection(db, 'entries'));
+      const allJournalsSnap = await getDocs(collection(clientDb, 'journals'));
+      const allEntriesSnap = await getDocs(collection(clientDb, 'entries'));
       const allJournals = allJournalsSnap.docs.map(doc => ({
         id: doc.id,
         createdAt: doc.data().createdAt.toDate(),
@@ -56,13 +56,13 @@ const journalController = {
   getJournalById: async (req, res) => {
     try {
       const journalId = req.params.id;
-      const journalDoc = await getDoc(doc(db, 'journals', journalId));
+      const journalDoc = await getDoc(doc(clientDb, 'journals', journalId));
 
       if (!journalDoc.exists()) {
         return res.status(404).json({ error: 'Journal not found' });
       }
 
-      const entriesQuery = query(collection(db, 'entries'), where('journalId', '==', journalId));
+      const entriesQuery = query(collection(clientDb, 'entries'), where('journalId', '==', journalId));
       const entriesSnap = await getDocs(entriesQuery);
 
       const journal = {
@@ -100,7 +100,7 @@ const journalController = {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      const journalRef = await addDoc(collection(db, 'journals'), newJournal);
+      const journalRef = await addDoc(collection(clientDb, 'journals'), newJournal);
       res.status(201).json({ journal: { id: journalRef.id, ...newJournal }, message: 'Journal created successfully' });
     }
     catch (error) {
@@ -117,7 +117,7 @@ const journalController = {
         return res.status(400).json({ error: 'Name is required' });
       }
 
-      const journalDocRef = doc(db, 'journals', journalId);
+      const journalDocRef = doc(clientDb, 'journals', journalId);
       if (!journalDocRef) {
         return res.status(404).json({ error: 'Journal not found' });
       }
@@ -138,7 +138,7 @@ const journalController = {
   deleteJournal: async (req, res) => {
     try {
       const journalId = req.params.id;
-      const journalDocRef = doc(db, 'journals', journalId);
+      const journalDocRef = doc(clientDb, 'journals', journalId);
       if (!journalDocRef) {
         return res.status(404).json({ error: 'Journal not found' });
       }
@@ -161,7 +161,7 @@ const journalController = {
         return res.status(400).json({ error: 'Name and coordinate are required' });
       }
 
-      const journalDocRef = doc(db, 'journals', journalId);
+      const journalDocRef = doc(clientDb, 'journals', journalId);
       const journalDoc = await getDoc(journalDocRef);
       if (!journalDoc.exists()) {
         return res.status(404).json({ error: 'Journal not found' });
@@ -176,7 +176,7 @@ const journalController = {
         updatedAt: new Date(),
       };
 
-      const entryDoc = await addDoc(collection(db, 'entries'), newEntry);
+      const entryDoc = await addDoc(collection(clientDb, 'entries'), newEntry);
 
       res.status(201).json({ message: 'Journal entry added successfully', entry: { id: entryDoc.id, ...newEntry } });
     }

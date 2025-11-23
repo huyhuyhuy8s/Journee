@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
-const { JWT_SECRET, userController } = require('../controllers/user');
+const { JWT_SECRET, userController } = require('@controllers/user');
 const { getDocs, collection } = require('firebase/firestore');
-const { db } = require('../utilities/firebase');
+const { clientDb } = require('@config/firebase');
 
 // Middleware to verify JWT token
 const authenticateToken = async (req, res, next) => {
@@ -16,7 +16,7 @@ const authenticateToken = async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
 
     // Find user by ID from token
-    const allUsersSnap = await getDocs(collection(db, 'users'));
+    const allUsersSnap = await getDocs(collection(clientDb, 'users'));
     const userDoc = allUsersSnap.docs.find(d => d.id === decoded.userId);
 
     if (!userDoc) {

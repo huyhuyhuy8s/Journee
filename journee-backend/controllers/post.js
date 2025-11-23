@@ -1,15 +1,15 @@
 const { errorLogger } = require('../middlewares/logger');
 
-const { db } = require('../utilities/firebase');
+const { clientDb } = require('@config/firebase');
 
 const { collection, addDoc, getDoc, getDocs, updateDoc, deleteDoc, doc, query, where } = require('firebase/firestore');
 
 const postController = {
   getAllPosts: async (req, res) => {
     try {
-      const allPostsSnap = await getDocs(collection(db, 'posts'));
-      const allReactionsSnap = await getDocs(collection(db, 'reactions'));
-      const allCommentsSnap = await getDocs(collection(db, 'comments'));
+      const allPostsSnap = await getDocs(collection(clientDb, 'posts'));
+      const allReactionsSnap = await getDocs(collection(clientDb, 'reactions'));
+      const allCommentsSnap = await getDocs(collection(clientDb, 'comments'));
       const allPosts = allPostsSnap.docs.map(doc => ({
         id: doc.id,
         createdAt: doc.data().createdAt.toDate(),
@@ -34,7 +34,7 @@ const postController = {
   getPostById: async (req, res) => {
     try {
       const postId = req.params.id;
-      const postDoc = await getDoc(doc(db, 'posts', postId));
+      const postDoc = await getDoc(doc(clientDb, 'posts', postId));
 
       if (!postDoc.exists()) {
         return res.status(404).json({ error: 'Post not found' });
@@ -48,8 +48,8 @@ const postController = {
         ...postDoc.data()
       };
 
-      const reactionQuery = query(collection(db, 'reactions'), where('postId', '==', postId));
-      const commentQuery = query(collection(db, 'comments'), where('postId', '==', postId));
+      const reactionQuery = query(collection(clientDb, 'reactions'), where('postId', '==', postId));
+      const commentQuery = query(collection(clientDb, 'comments'), where('postId', '==', postId));
       const reactionsSnap = await getDocs(reactionQuery);
       const commentsSnap = await getDocs(commentQuery);
 
@@ -85,7 +85,7 @@ const postController = {
         updatedAt: new Date()
       };
 
-      const postRef = await addDoc(collection(db, 'posts'), newPost);
+      const postRef = await addDoc(collection(clientDb, 'posts'), newPost);
       res.status(201).json({ post: { id: postRef.id, ...newPost }, message: 'Post created successfully' });
     }
     catch (error) {
@@ -97,7 +97,7 @@ const postController = {
   updatePost: async (req, res) => {
     try {
       const postId = req.params.id;
-      const postDoc = await getDoc(doc(db, 'posts', postId));
+      const postDoc = await getDoc(doc(clientDb, 'posts', postId));
 
       if (!postDoc.exists()) {
         return res.status(404).json({ error: 'Post not found' });
@@ -134,7 +134,7 @@ const postController = {
   deletePost: async (req, res) => {
     try {
       const postId = req.params.id;
-      const postDoc = await getDoc(doc(db, 'posts', postId));
+      const postDoc = await getDoc(doc(clientDb, 'posts', postId));
 
       if (!postDoc.exists()) {
         return res.status(404).json({ error: 'Post not found' });
@@ -169,19 +169,19 @@ const postController = {
         return res.status(400).json({ error: 'Reaction type is required' });
       }
 
-      const postDoc = await getDoc(doc(db, 'posts', postId));
+      const postDoc = await getDoc(doc(clientDb, 'posts', postId));
       if (!postDoc.exists()) {
         return res.status(404).json({ error: 'Post not found' });
       }
 
-      const reactionQuery = query(collection(db, 'reactions'), where('postId', '==', postId), where('userId', '==', userId));
+      const reactionQuery = query(collection(clientDb, 'reactions'), where('postId', '==', postId), where('userId', '==', userId));
       const reactDocs = await getDocs(reactionQuery);
       if (!reactDocs.empty) {
         await updateDoc(reactDocs.docs[0].ref, { reactionType, updatedAt: new Date() });
         return res.status(400).json({ error: 'Reaction has been updated' });
       }
 
-      await addDoc(collection(db, 'reactions'), { postId, userId, reactionType, updatedAt: new Date() });
+      await addDoc(collection(clientDb, 'reactions'), { postId, userId, reactionType, updatedAt: new Date() });
       return res.json({ message: 'Reacted to post successfully' });
     }
     catch (error) {
@@ -200,12 +200,12 @@ const postController = {
         return res.status(404).json({ error: 'Post not found' });
       }
 
-      const postDoc = await getDoc(doc(db, 'posts', postId));
+      const postDoc = await getDoc(doc(clientDb, 'posts', postId));
       if (!postDoc.exists()) {
         return res.status(404).json({ error: 'Post not found' });
       }
 
-      await addDoc(collection(db, 'comments'), {
+      await addDoc(collection(clientDb, 'comments'), {
         userId,
         postId,
         comment,
