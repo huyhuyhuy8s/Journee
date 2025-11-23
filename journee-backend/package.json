@@ -4,7 +4,7 @@
   "description": "journee backend server",
   "main": "index.js",
   "scripts": {
-    "start": "node -r NODE_ENV=production module-alias/register index.js",
+    "start": "cross-env NODE_ENV=production node -r module-alias/register index.js",
     "dev": "cross-env NODE_ENV=development node -r module-alias/register --watch index.js",
     "build": "echo 'No build step required for Node.js'",
     "lint": "eslint .",
