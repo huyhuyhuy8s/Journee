@@ -36,24 +36,29 @@ const Login = () => {
   }, [isAuthenticated]);
 
   const handleLogin = async () => {
-    setError("");
+    try {
+      setError("");
 
-    if (!email || !password) {
-      setError("Please fill in all fields");
-      return;
-    }
+      if (!email || !password) {
+        setError("Please fill in all fields");
+        return;
+      }
 
-    if (!email.includes("@")) {
-      setError("Please enter a valid email");
-      return;
-    }
+      if (!email.includes("@")) {
+        setError("Please enter a valid email");
+        return;
+      }
 
-    const result = await login(email, password);
+      const result = await login(email, password);
 
-    if (!result.success) {
-      setError(result.error || "Login failed");
-    } else {
-      console.log("Login successful");
+      if (!result.success) {
+        setError(result.error || "Login failed");
+      } else {
+        console.log("Login successful");
+      }
+    } catch (err: Error | any) {
+      setError("An unexpected error occurred. Please try again.");
+      console.error("Login", err?.message);
     }
   };
 
@@ -106,7 +111,7 @@ const Login = () => {
               autoCapitalize="none"
               autoCorrect={false}
               bg={theme.color3}
-              color={theme.color10}
+              color={theme.color11}
               borderColor={error ? theme.red8 : theme.borderColor}
               disabled={isLoading}
             />
@@ -119,7 +124,7 @@ const Login = () => {
               secureTextEntry
               autoCapitalize="none"
               bg={theme.color3}
-              color={theme.color10}
+              color={theme.color11}
               borderColor={error ? theme.red8 : theme.borderColor}
               disabled={isLoading}
             />

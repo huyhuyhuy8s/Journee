@@ -1,8 +1,10 @@
 const jwt = require('jsonwebtoken');
-const { userController, JWT_SECRET } = require('../controllers/users');
+const { JWT_SECRET, userController } = require('../controllers/user');
+const { getDocs, collection } = require('firebase/firestore');
+const { db } = require('../utilities/firebase');
 
 // Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -10,20 +12,22 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
-    }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     // Find user by ID from token
-    const user = userController.findUserById(decoded.userId);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    const allUsersSnap = await getDocs(collection(db, 'users'));
+    const userDoc = allUsersSnap.docs.find(d => d.id === decoded.userId);
+
+    if (!userDoc) {
+      return res.status(403).json({ error: 'Invalid token' });
     }
 
-    req.user = user;
+    req.user = { id: userDoc.id, ...userDoc.data() };
     next();
-  });
+  } catch (error) {
+    return res.status(403).json({ error: 'Invalid token' });
+  }
 };
 
 module.exports = { authenticateToken };

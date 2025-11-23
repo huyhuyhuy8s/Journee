@@ -6,7 +6,7 @@ import {
   useEffect,
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { authAPI, setAuthToken } from "@/services/api";
+import { authAPI, setAuthToken } from "@/services/user";
 
 // Define types
 interface User {

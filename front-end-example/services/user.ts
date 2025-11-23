@@ -1,9 +1,15 @@
 import axios, { AxiosError } from "axios";
+import {
+  API_FETCH_ALL_USERS,
+  API_FETCH_USER,
+  API_LOGIN,
+  API_REGISTER,
+} from "@/api/apiRoutes";
 
-const API_BASE_URL = "http://localhost:3001/api"; // Replace with your backend URL
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3001";
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: BACKEND_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -32,28 +38,33 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error: AxiosError) => {
-    // if (error.response?.status === 401) {
-    // return
-    // }
+    // Handle unauthorized access
+    if (error.response?.status === 401) {
+      // Clear token and redirect to login
+      setAuthToken(null);
+      // You can add navigation logic here
+    }
     return Promise.reject(error);
   }
 );
 
 export const authAPI = {
   login: (email: string, password: string) =>
-    apiClient.post("/login", { email, password }),
+    apiClient.post(API_LOGIN, { email, password }),
 
   register: (name: string, email: string, password: string) =>
-    apiClient.post("/register", { name, email, password }),
+    apiClient.post(API_REGISTER, { name, email, password }),
 
-  logout: () => apiClient.post("/logout"),
+  logout: () => apiClient.post("/api/users/logout"),
 
-  validateToken: () => apiClient.get("/validate-token"),
+  validateToken: () => apiClient.get("/api/users/validate-token"),
 
-  getProfile: () => apiClient.get("/profile"),
+  getProfile: () => apiClient.get("/api/users/profile"),
 
   updateProfile: (data: { name?: string; avatar?: string }) =>
-    apiClient.put("/profile", data),
+    apiClient.put("/api/users/profile", data),
 
-  getUsers: () => apiClient.get("/users"),
+  getAllUsers: () => apiClient.get(API_FETCH_ALL_USERS),
+
+  getUserById: (id: string) => apiClient.get(API_FETCH_USER.replace(":id", id)),
 };

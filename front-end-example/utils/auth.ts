@@ -1,5 +1,5 @@
 // utils/auth.ts
-import { authAPI, setAuthToken } from "@/services/api";
+import { authAPI, setAuthToken } from "@/services/user";
 import { useUserDispatch } from "@/contexts/UserContext";
 import { AxiosError } from "axios";
 

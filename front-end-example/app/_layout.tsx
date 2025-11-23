@@ -40,7 +40,7 @@ const AppContent = () => {
               <Stack.Screen
                 name="register"
                 options={{
-                  title: "Login",
+                  title: "Register",
                   headerShown: false,
                 }}
               />
