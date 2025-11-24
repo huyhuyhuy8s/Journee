@@ -1,0 +1,40 @@
+{
+  "name": "back-end-example",
+  "version": "1.0.0",
+  "description": "example of journee back end application",
+  "main": "index.js",
+  "scripts": {
+    "build:ui": "rm -rf dist && cd ../frontend && npm run build && cp -r dist ../backend",
+    "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push",
+    "start": "cross-env NODE_ENV=production node index.js",
+    "dev": "cross-env NODE_ENV=development node --watch index.js",
+    "lint": "eslint .",
+    "test": "NODE_ENV=test node --test",
+    "start:test": "NODE_ENV=test node index.js"
+  },
+  "keywords": [
+    "journee"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "latest",
+    "cors": "^2.8.5",
+    "cross-env": "latest",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-async-errors": "latest",
+    "groq-sdk": "^0.36.0",
+    "jsonwebtoken": "latest",
+    "mongoose": "latest",
+    "openai": "^6.9.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@stylistic/eslint-plugin-js": "latest",
+    "eslint": "latest",
+    "eslint-plugin-react": "latest",
+    "globals": "latest",
+    "supertest": "latest"
+  }
+}
