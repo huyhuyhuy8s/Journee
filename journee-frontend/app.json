@@ -17,7 +17,12 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.journeemap.journee",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to access your location even when the app is in the background.",
+        "NSLocationWhenInUseUsageDescription": "Allow $(PRODUCT_NAME) to access your location while you are using the app.",
+        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera to take photos.",
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photo library to select photos.",
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone for audio recording."
       }
     },
     "android": {
@@ -30,9 +35,19 @@
       "package": "com.journeemap.journee",
       "config": {
         "googleMaps": {
-          "apiKey": "AIzaSyAhs2IT0zcXyiec519n8EO1pJS4QzmWQU4"
+          "apiKey": ""
         }
-      }
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -47,6 +62,12 @@
           "requestLocationPermission": true,
           "locationPermission": "Allow $(PRODUCT_NAME) to use your location"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to access your location even when the app is in the background."
+        }
       ]
     ],
     "experiments": {
@@ -58,6 +79,12 @@
         "projectId": "12d64cc6-41d4-4226-849a-32080b420198"
       }
     },
-    "owner": "journee-map"
+    "owner": "journee-map",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/12d64cc6-41d4-4226-849a-32080b420198"
+    }
   }
 }
