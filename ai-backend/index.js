@@ -16,7 +16,7 @@ if (!GROQ_API_KEY) {
 const groq = new Groq({ apiKey: GROQ_API_KEY });
 
 
-// --- Hàm callGroq đã sửa Model ---
+// --- Hàm callGroq đã sửa Model (Sử dụng llama-3.1-8b-instant) ---
 async function callGroq(prompt, opts = {}) {
   try {
     const chatCompletion = await groq.chat.completions.create({
@@ -26,7 +26,7 @@ async function callGroq(prompt, opts = {}) {
           content: prompt,
         },
       ],
-      // SỬA MODEL TỪ llama3-8b-8192 SANG llama3-8b-8192
+      // Đã cập nhật model từ llama3-8b-8192 sang llama-3.1-8b-instant
       model: opts.model || "llama-3.1-8b-instant", 
       max_tokens: opts.max_tokens || 80, 
       temperature: opts.temperature ?? 0.8,
@@ -58,24 +58,46 @@ app.post('/api/caption', async (req, res) => {
     const { description } = req.body;
     if (!description) return res.status(400).json({ error: "Description is required." });
 
+    // SỬ DỤNG PROMPT MỚI cho Caption
     const prompt = `
-Generate 5 short captions (max 10 words each). Return JSON: {"captions": [ ... ]}.
-Post: "${description}"
-Return either a JSON array or newline-separated captions.
+Generate 5 short captions (max 10 words each) for the post: "${description}".
+ONLY return a single, valid JSON object with the key "captions". DO NOT include any introductory text or Markdown code fences (e.g., \`\`\`json).
+Example: {"captions": ["Chill và nắng", "Yêu khoảnh khắc này"]}
     `.trim();
 
     const raw = await callGroq(prompt, { max_tokens: 200 });
-    let parsed;
-    try { parsed = JSON.parse(raw); }
-    catch (e) { parsed = null; }
+    
+    // LOGIC PARSING MỚI: TẬP TRUNG TÌM VÀ TRÍCH XUẤT KHỐI JSON
+    let parsed = null;
+    
+    try {
+        // Biểu thức chính quy tìm khối JSON, bỏ qua Markdown code block
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            // Cố gắng parse chuỗi JSON đã trích xuất
+            parsed = JSON.parse(jsonMatch[0]);
+        }
+    } catch (e) { 
+        console.warn("Failed to parse JSON for caption, trying fallback.", e.message);
+    }
 
-    if (parsed && parsed.captions) return res.json({ captions: parsed.captions });
+    if (parsed && Array.isArray(parsed.captions)) {
+        // Nếu trích xuất JSON thành công và có mảng captions
+        return res.json({ captions: parsed.captions.slice(0, 5) });
+    }
+
+    // FALLBACK LOGIC: Nếu không phải JSON hợp lệ, chia theo dòng/dấu phẩy (giống code cũ)
     const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    if (lines.length) return res.json({ captions: lines.slice(0,5) });
-    const parts = raw.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
-    if (parts.length) return res.json({ captions: parts.slice(0,5) });
-
-    return res.json({ captions: [raw].slice(0,5) });
+    
+    // Lọc bỏ các dòng có vẻ là Markdown hoặc bắt đầu JSON không hoàn chỉnh
+    const validLines = lines.filter(line => !line.startsWith('```') && !line.startsWith('{') && !line.startsWith('['));
+    
+    if (validLines.length >= 5) {
+        return res.json({ captions: validLines.slice(0, 5) });
+    }
+    
+    // Fallback cuối cùng
+    return res.json({ captions: [raw].slice(0, 5) });
 
   } catch (err) {
     console.error("Caption Error (Groq):", err);
@@ -84,17 +106,16 @@ Return either a JSON array or newline-separated captions.
 });
 
 // -------------------- AI STATUS API (Groq) -------------------- //
-// -------------------- AI STATUS API (Groq) -------------------- //
 app.post('/api/status', async (req, res) => {
   try {
     const { location, mood } = req.body;
     if (!location || !mood) return res.status(400).json({ error: "Location and mood are required." });
 
-    // SỬ DỤNG PROMPT MỚI
+    // SỬ DỤNG PROMPT MỚI cho Status
     const prompt = `
 Generate 5 short social statuses (<12 words) for a map app based on the location and mood.
 INPUT: Location: ${location}, Mood: ${mood}
-ONLY return a single, valid JSON object with the key "statuses". DO NOT include any introductory or explanatory text outside of the JSON block.
+ONLY return a single, valid JSON object with the key "statuses". DO NOT include any introductory or explanatory text or Markdown code fences (e.g., \`\`\`json).
 Example: {"statuses": ["Vui quá!", "Yên bình tại đây."]}
     `.trim();
 
@@ -104,14 +125,14 @@ Example: {"statuses": ["Vui quá!", "Yên bình tại đây."]}
     let parsed = null;
     
     try {
-        // Tìm khối JSON hợp lệ đầu tiên trong chuỗi
+        // Biểu thức chính quy tìm khối JSON, bỏ qua Markdown code block
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             // Cố gắng parse chuỗi JSON đã trích xuất
             parsed = JSON.parse(jsonMatch[0]);
         }
     } catch (e) { 
-        // Nếu parse thất bại, parsed vẫn là null
+        console.warn("Failed to parse JSON for status, trying fallback.", e.message);
     }
 
     if (parsed && Array.isArray(parsed.statuses)) {
@@ -121,12 +142,12 @@ Example: {"statuses": ["Vui quá!", "Yên bình tại đây."]}
 
     // FALLBACK LOGIC: Nếu không phải JSON hợp lệ, chia theo dòng/dấu phẩy (giống code cũ)
     const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    if (lines.length) {
-        // Chỉ lấy các dòng không phải là ký tự bắt đầu JSON ({, [)
-        const validLines = lines.filter(line => !line.startsWith('{') && !line.startsWith('['));
-        if (validLines.length > 0) {
-            return res.json({ statuses: validLines.slice(0, 5) });
-        }
+    
+    // Lọc bỏ các dòng có vẻ là Markdown hoặc bắt đầu JSON không hoàn chỉnh
+    const validLines = lines.filter(line => !line.startsWith('```') && !line.startsWith('{') && !line.startsWith('['));
+    
+    if (validLines.length >= 5) {
+        return res.json({ statuses: validLines.slice(0, 5) });
     }
     
     // Fallback cuối cùng
