@@ -57,6 +57,9 @@
         "READ_MEDIA_VIDEO",
         "ACCESS_NETWORK_STATE"
       ]
+      // "foregroundService": {
+      //   "locationPermission": "Allow $(PRODUCT_NAME) to access your location in the background to track your journey."
+      // }
     },
     "web": {
       "bundler": "metro",
