@@ -8,6 +8,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PortalProvider, TamaguiProvider } from "tamagui";
 import { ThemeContextProvider, useThemeValue } from "@/contexts/ThemeContext";
 import { UserContextProvider } from "@/contexts/UserContext";
+import { AppStateProvider } from "@/contexts/AppStateContext";
+import { GlobalLoading } from "@/components/GlobalLoading";
+import { GlobalError } from "@/components/GlobalError";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -19,34 +22,38 @@ const AppContent = () => {
   return (
     <SafeAreaProvider>
       <TamaguiProvider config={tamaguiConfig} defaultTheme={theme}>
-        <PortalProvider>
-          <ToastProvider>
-            <StatusBar />
-            <Stack>
-              <Stack.Screen
-                name="(tabs)"
-                options={{
-                  title: "Home",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="login"
-                options={{
-                  title: "Login",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen
-                name="register"
-                options={{
-                  title: "Register",
-                  headerShown: false,
-                }}
-              />
-            </Stack>
-          </ToastProvider>
-        </PortalProvider>
+        <AppStateProvider>
+          <PortalProvider>
+            <ToastProvider>
+              <StatusBar />
+              <Stack>
+                <Stack.Screen
+                  name="(tabs)"
+                  options={{
+                    title: "Home",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="login"
+                  options={{
+                    title: "Login",
+                    headerShown: false,
+                  }}
+                />
+                <Stack.Screen
+                  name="register"
+                  options={{
+                    title: "Register",
+                    headerShown: false,
+                  }}
+                />
+              </Stack>
+              <GlobalLoading />
+              <GlobalError />
+            </ToastProvider>
+          </PortalProvider>
+        </AppStateProvider>
       </TamaguiProvider>
     </SafeAreaProvider>
   );
