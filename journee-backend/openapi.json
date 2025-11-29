@@ -9,6 +9,15 @@
     {
       "url": "http://localhost:3001",
       "description": "Local Dev"
+    },
+    {
+      "url": "https://journee-1gt3.onrender.com",
+      "description": "Production"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
     }
   ],
   "tags": [
@@ -40,6 +49,7 @@
           "Health"
         ],
         "summary": "Server health status",
+        "security": [],
         "responses": {
           "200": {
             "description": "Server OK",
@@ -60,6 +70,7 @@
           "Health"
         ],
         "summary": "API info",
+        "security": [],
         "responses": {
           "200": {
             "description": "API info",
@@ -80,6 +91,7 @@
           "Auth"
         ],
         "summary": "User login",
+        "security": [],
         "requestBody": {
           "required": true,
           "content": {
@@ -119,6 +131,7 @@
           "Auth"
         ],
         "summary": "User registration",
+        "security": [],
         "requestBody": {
           "required": true,
           "content": {
