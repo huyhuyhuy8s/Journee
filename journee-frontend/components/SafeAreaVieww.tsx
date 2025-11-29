@@ -1,11 +1,26 @@
+// components/SafeAreaVieww.tsx
+import React from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "tamagui";
 
-const SafeAreaVieww = ({ children }: any) => {
+interface SafeAreaViewwProps {
+  children: React.ReactNode;
+  style?: any;
+}
+
+const SafeAreaVieww: React.FC<SafeAreaViewwProps> = ({ children, style }) => {
   const theme = useTheme();
 
   return (
-    <SafeAreaView style={{ backgroundColor: theme.background.val }}>
+    <SafeAreaView
+      style={[
+        {
+          flex: 1,
+          backgroundColor: theme.background.val,
+        },
+        style,
+      ]}
+    >
       {children}
     </SafeAreaView>
   );

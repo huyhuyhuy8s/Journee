@@ -17,6 +17,9 @@ dev:
 android:
 	expo run:android
 
+prebuild:
+	npx expo prebuild --clean
+
 build:
 	eas build --platform android --profile development
 
