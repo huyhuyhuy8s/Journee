@@ -556,21 +556,51 @@ export class BackendApiServices {
   /**
    * Authenticate user and get token
    */
-  static async authenticate(userId: string): Promise<boolean> {
+  static async authenticate(userId: string, token: string): Promise<boolean> {
     try {
-      // This should be handled by your authentication system
-      // For now, assuming you get the token from Firebase Auth or similar
       console.log("🔐 Authenticating user:", userId);
 
-      // You'll need to implement this based on your auth flow
-      // For example, if using Firebase Auth, you might:
-      // const idToken = await firebase.auth().currentUser.getIdToken();
-      // await this.setAuthToken(idToken);
-      // await this.setUserId(userId);
+      // Store credentials
+      await this.setAuthToken(token);
+      await this.setUserId(userId);
 
-      return true;
+      // Test the token by making an authenticated request
+      const response = await this.makeAuthenticatedRequest(
+        "/auth/verify",
+        "GET"
+      );
+
+      if (response && response.ok) {
+        console.log("✅ Authentication successful");
+        return true;
+      } else {
+        console.error("❌ Authentication failed - invalid token");
+        return false;
+      }
     } catch (error) {
-      console.error("❌ Authentication failed:", error);
+      console.error("❌ Authentication error:", error);
+      return false;
+    }
+  }
+
+  static async clearAuth(): Promise<void> {
+    try {
+      await SecureStore.deleteItemAsync(this.AUTH_TOKEN_KEY);
+      await AsyncStorage.removeItem(this.USER_ID_KEY);
+      console.log("🔓 Authentication cleared");
+    } catch (error) {
+      console.error("❌ Error clearing auth:", error);
+    }
+  }
+
+  static async isAuthenticated(): Promise<boolean> {
+    try {
+      const token = await this.getAuthToken();
+      const userId = await this.getUserId();
+
+      return !!(token && userId);
+    } catch (error) {
+      console.error("❌ Error checking authentication:", error);
       return false;
     }
   }

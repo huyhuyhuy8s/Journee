@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAppState } from "@/contexts/AppStateContext";
 import {
   API_FETCH_ALL_USERS,
   API_FETCH_USER,
@@ -248,7 +249,6 @@ interface AuthState {
   token: string | null;
 }
 
-// ✅ useAuth custom hook
 export const useAuth = () => {
   const [authState, setAuthState] = useState<AuthState>({
     isAuthenticated: false,
@@ -257,6 +257,9 @@ export const useAuth = () => {
     token: null,
   });
 
+  // 🆕 Use global app state for loading and errors
+  const { setLoading, setError, clearError } = useAppState();
+
   // Initialize auth state on mount
   useEffect(() => {
     initializeAuth();
@@ -264,6 +267,7 @@ export const useAuth = () => {
 
   const initializeAuth = async () => {
     try {
+      setLoading(true, "Initializing authentication...");
       const token = await AsyncStorage.getItem("authToken");
 
       if (token) {
@@ -277,6 +281,7 @@ export const useAuth = () => {
             user: response.data.user,
             token,
           });
+          clearError(); // Clear any previous errors
         } catch (error) {
           // Token is invalid, clear it
           await AsyncStorage.removeItem("authToken");
@@ -287,6 +292,7 @@ export const useAuth = () => {
             user: null,
             token: null,
           });
+          console.warn("Token validation failed, user needs to login again");
         }
       } else {
         setAuthState({
@@ -298,22 +304,23 @@ export const useAuth = () => {
       }
     } catch (error) {
       devLog.error("❌ [AUTH] Failed to initialize auth:", error);
+      setError("Failed to initialize authentication");
       setAuthState({
         isAuthenticated: false,
         isLoading: false,
         user: null,
         token: null,
       });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const login = async (
-    email: string,
-    password: string
-  ): Promise<AuthResult> => {
-    setAuthState((prev) => ({ ...prev, isLoading: true }));
-
+  const login = async (email: string, password: string) => {
     try {
+      setLoading(true, "Signing in...");
+      clearError();
+
       const response = await authAPI.login(email, password);
       const { token, user } = response.data;
 
@@ -328,13 +335,28 @@ export const useAuth = () => {
         token,
       });
 
-      return { success: true, user };
+      // 🆕 Return both user and token for backend integration
+      return {
+        success: true,
+        user: user,
+        token: token,
+      };
     } catch (error: any) {
-      setAuthState((prev) => ({ ...prev, isLoading: false }));
-
       const errorMessage =
         error.response?.data?.error || error.message || "Login failed";
-      return { success: false, error: errorMessage };
+      setError(errorMessage);
+
+      setAuthState((prev) => ({
+        ...prev,
+        isLoading: false,
+      }));
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -343,9 +365,10 @@ export const useAuth = () => {
     email: string,
     password: string
   ): Promise<AuthResult> => {
-    setAuthState((prev) => ({ ...prev, isLoading: true }));
-
     try {
+      setLoading(true, "Creating account...");
+      clearError();
+
       const response = await authAPI.register(name, email, password);
       const { token, user } = response.data;
 
@@ -362,36 +385,54 @@ export const useAuth = () => {
 
       return { success: true, user };
     } catch (error: any) {
-      setAuthState((prev) => ({ ...prev, isLoading: false }));
-
       const errorMessage =
         error.response?.data?.error || error.message || "Registration failed";
+      setError(errorMessage);
+
+      setAuthState((prev) => ({
+        ...prev,
+        isLoading: false,
+      }));
+
       return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async (): Promise<AuthResult> => {
     try {
-      await authAPI.logout();
-    } catch (error) {
-      // Continue with logout even if server request fails
-      devLog.warn(
-        "⚠️ [AUTH] Server logout failed, continuing with local logout"
-      );
+      setLoading(true, "Signing out...");
+
+      try {
+        await authAPI.logout();
+      } catch (error) {
+        // Continue with logout even if server request fails
+        devLog.warn(
+          "⚠️ [AUTH] Server logout failed, continuing with local logout"
+        );
+      }
+
+      // Clear local storage and state
+      await AsyncStorage.removeItem("authToken");
+      setAuthToken(null);
+
+      setAuthState({
+        isAuthenticated: false,
+        isLoading: false,
+        user: null,
+        token: null,
+      });
+
+      clearError();
+      return { success: true };
+    } catch (error: any) {
+      const errorMessage = error.message || "Logout failed";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
     }
-
-    // Clear local storage and state
-    await AsyncStorage.removeItem("authToken");
-    setAuthToken(null);
-
-    setAuthState({
-      isAuthenticated: false,
-      isLoading: false,
-      user: null,
-      token: null,
-    });
-
-    return { success: true };
   };
 
   const updateProfile = async (data: {
@@ -399,6 +440,9 @@ export const useAuth = () => {
     avatar?: string;
   }): Promise<AuthResult> => {
     try {
+      setLoading(true, "Updating profile...");
+      clearError();
+
       const response = await authAPI.updateProfile(data);
       const updatedUser = response.data.user;
 
@@ -411,7 +455,10 @@ export const useAuth = () => {
     } catch (error: any) {
       const errorMessage =
         error.response?.data?.error || error.message || "Profile update failed";
+      setError(errorMessage);
       return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
     }
   };
 
