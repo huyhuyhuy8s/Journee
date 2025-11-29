@@ -10,7 +10,9 @@ import { MovementStateIndicator } from "./components/MovementStateIndicator";
 import { LocationDisplay } from "./components/LocationDisplay";
 import { AddressDisplay } from "./components/AddressDisplay";
 import { ErrorMessage } from "./components/ErrorMessage";
-import { VisitIndicator } from "./components/VisitIndicator"; // 🆕 Added
+import { VisitIndicator } from "./components/VisitIndicator";
+import { BackendSyncIndicator } from "./components/BackendSyncIndicator";
+import { BackendApiServices } from "@/services/backendApiServices";
 
 const Map: React.FC = () => {
   const { isLocationPermitted, errorMsg, requestPermissions } =
@@ -37,6 +39,29 @@ const Map: React.FC = () => {
     initializeLocationServices();
   }, [isLocationPermitted, requestPermissions, getCurrentLocation]);
 
+  // 🆕 Initialize backend connection and authentication
+  useEffect(() => {
+    const initializeBackend = async () => {
+      try {
+        // Test backend connection
+        const isConnected = await BackendApiServices.testConnection();
+        if (isConnected) {
+          console.log("✅ Backend connection established");
+
+          // TODO: Implement authentication
+          // const userId = "your-user-id"; // Get from your auth system
+          // await BackendApiService.authenticate(userId);
+        } else {
+          console.warn("⚠️ Backend connection failed");
+        }
+      } catch (error) {
+        console.error("❌ Error initializing backend:", error);
+      }
+    };
+
+    initializeBackend();
+  }, []);
+
   const movementInfo = getMovementStateInfo();
 
   return (
@@ -55,8 +80,11 @@ const Map: React.FC = () => {
       <LocationDisplay location={location} />
       <ErrorMessage errorMsg={errorMsg} />
 
-      {/* 🆕 Visit Detection Indicator */}
+      {/* Visit Detection Indicator */}
       <VisitIndicator isTracking={isTracking} />
+
+      {/* 🆕 Backend Sync Indicator */}
+      <BackendSyncIndicator isTracking={isTracking} />
     </SafeAreaVieww>
   );
 };

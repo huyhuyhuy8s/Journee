@@ -17,6 +17,7 @@ import { StorageService } from "./storageService";
 import { VisitDetectionService } from "../../../services/visitDetectionService";
 import { GlobalGeocodingService } from "../../../services/geocodingService";
 import type { MovementAnalysis, LocationData } from "../utils/types";
+import { BackendApiServices } from "@/services/backendApiServices";
 
 interface StateSpecificData {
   lastLocationCheck: number;
@@ -696,7 +697,7 @@ export class BackgroundTaskService {
           `✅ Enhanced location result: ${geocodingResult.place} (${geocodingResult.source})`
         );
 
-        // Store enhanced location data
+        // Store enhanced location data locally
         const enhancedLocationData = {
           ...location,
           enhancedPlace: geocodingResult.place,
@@ -711,9 +712,26 @@ export class BackgroundTaskService {
           JSON.stringify(enhancedLocationData)
         );
 
-        // Send to backend if available
-        if (this.BACKEND_URL) {
-          await this.sendLocationUpdateToBackend(enhancedLocationData);
+        // Send to backend
+        const success = await BackendApiServices.sendLocationUpdate({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          enhancedPlace: geocodingResult.place,
+          enhancedAddress: geocodingResult.value,
+          geocodingSource: geocodingResult.source,
+          geocodingConfidence: geocodingResult.confidence,
+          timestamp: location.timestamp,
+          accuracy: location.coords.accuracy ?? undefined,
+          speed: location.coords.speed,
+          movementState:
+            (await StorageService.getStorageValue("MOVEMENT_STATE")) ||
+            "UNKNOWN",
+        });
+
+        if (success) {
+          console.log("✅ Location update sent to backend successfully");
+        } else {
+          console.log("⏳ Location update queued for retry");
         }
       }
     } catch (error) {
@@ -767,37 +785,25 @@ export class BackgroundTaskService {
    */
   static async sendVisitToBackend(visit: any): Promise<void> {
     try {
-      if (!this.BACKEND_URL) {
-        console.warn("⚠️ Backend URL not configured");
-        return;
-      }
-
-      const response = await fetch(`${this.BACKEND_URL}/api/visits`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Add authentication headers if needed
-        },
-        body: JSON.stringify({
-          id: visit.id,
-          place: visit.place,
-          address: visit.address,
-          latitude: visit.latitude,
-          longitude: visit.longitude,
-          arrivalTime: visit.arrivalTime,
-          departureTime: visit.departureTime,
-          duration: visit.duration,
-          confidence: visit.confidence,
-          source: visit.source,
-          visitType: visit.visitType,
-          metadata: visit.metadata,
-        }),
+      const success = await BackendApiServices.sendVisit({
+        id: visit.id,
+        place: visit.place,
+        address: visit.address,
+        latitude: visit.latitude,
+        longitude: visit.longitude,
+        arrivalTime: visit.arrivalTime,
+        departureTime: visit.departureTime,
+        duration: visit.duration,
+        confidence: visit.confidence,
+        source: visit.source,
+        visitType: visit.visitType,
+        metadata: visit.metadata,
       });
 
-      if (response.ok) {
+      if (success) {
         console.log(`✅ Visit sent to backend: ${visit.place}`);
       } else {
-        console.error(`❌ Failed to send visit to backend: ${response.status}`);
+        console.log(`⏳ Visit queued for retry: ${visit.place}`);
       }
     } catch (error) {
       console.error("❌ Error sending visit to backend:", error);
