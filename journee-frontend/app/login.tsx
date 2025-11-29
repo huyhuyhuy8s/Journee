@@ -1,63 +1,85 @@
+// app/login.tsx
 import React, { useEffect, useState } from "react";
 import SafeAreaVieww from "@/components/SafeAreaVieww";
-import {
-  Button,
-  Form,
-  Input,
-  Spinner,
-  Text,
-  useTheme,
-  XStack,
-  YStack,
-} from "tamagui";
+import { Button, Form, Input, Text, useTheme, XStack, YStack } from "tamagui";
 import { Home, MapPinned } from "@tamagui/lucide-icons";
 import { useAuth } from "@/utils/auth";
 import { useIsAuthenticated, useIsLoading } from "@/contexts/UserContext";
 import { Link, router } from "expo-router";
-
-// Sample accounts
-// john@example.com
-// password
+import { BackendApiServices } from "@/services/backendApiServices"; // 🆕 Fixed name
 
 const Login = () => {
   const theme = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [localError, setLocalError] = useState(""); // Local error for form validation
 
   const { login } = useAuth();
-  const isLoading = useIsLoading();
+  const isLoading = useIsLoading(); // Global loading state
   const isAuthenticated = useIsAuthenticated();
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace("/(tabs)");
+      router.replace("/(tabs)/map");
     }
   }, [isAuthenticated]);
 
   const handleLogin = async () => {
     try {
-      setError("");
+      setLocalError("");
 
       if (!email || !password) {
-        setError("Please fill in all fields");
+        setLocalError("Please fill in all fields");
         return;
       }
 
       if (!email.includes("@")) {
-        setError("Please enter a valid email");
+        setLocalError("Please enter a valid email");
         return;
       }
 
       const result = await login(email, password);
 
       if (!result.success) {
-        setError(result.error || "Login failed");
+        setLocalError(result.error || "Login failed");
       } else {
         console.log("Login successful");
+
+        // Store user information and token for backend API requests
+        if (result.user && result.token) {
+          try {
+            // Store authentication token for backend API calls
+            await BackendApiServices.setAuthToken(result.token);
+
+            // Store user ID for backend requests
+            await BackendApiServices.setUserId(
+              result.user.uid || result.user.id
+            );
+
+            console.log("✅ User credentials stored for backend API");
+
+            // Test backend connection with new credentials
+            const isBackendConnected =
+              await BackendApiServices.testConnection();
+            if (isBackendConnected) {
+              console.log("✅ Backend connection verified");
+            } else {
+              console.warn("⚠️ Backend connection failed - will retry later");
+            }
+
+            // Navigate to tabs
+            router.replace("/(tabs)/Map");
+          } catch (backendError) {
+            console.error(
+              "❌ Error storing backend credentials:",
+              backendError
+            );
+            router.replace("/(tabs)/Map");
+          }
+        }
       }
-    } catch (err: Error | any) {
-      setError("An unexpected error occurred. Please try again.");
+    } catch (err: any) {
+      setLocalError("An unexpected error occurred. Please try again.");
       console.error("Login", err?.message);
     }
   };
@@ -83,7 +105,7 @@ const Login = () => {
           t="$5"
           color={theme.color1}
           onPress={() => {
-            router.push("/(tabs)");
+            router.push("/(tabs)/Map");
           }}
         />
         <YStack width="90%" gap="$4">
@@ -96,9 +118,9 @@ const Login = () => {
           >
             Welcome Back
           </Text>
-          {error && (
+          {localError && (
             <Text color={theme.red10} text="center" fontSize="$5">
-              {error}
+              {localError}
             </Text>
           )}
           <Form gap="$3" onSubmit={handleLogin}>
@@ -112,7 +134,7 @@ const Login = () => {
               autoCorrect={false}
               bg={theme.color3}
               color={theme.color11}
-              borderColor={error ? theme.red8 : theme.borderColor}
+              borderColor={localError ? theme.red8 : theme.borderColor}
               disabled={isLoading}
             />
             <Input
@@ -125,7 +147,7 @@ const Login = () => {
               autoCapitalize="none"
               bg={theme.color3}
               color={theme.color11}
-              borderColor={error ? theme.red8 : theme.borderColor}
+              borderColor={localError ? theme.red8 : theme.borderColor}
               disabled={isLoading}
             />
             <Form.Trigger asChild>
@@ -138,14 +160,7 @@ const Login = () => {
                 disabled={isLoading}
                 opacity={isLoading ? 0.7 : 1}
               >
-                {isLoading ? (
-                  <XStack gap="$2" items="center">
-                    <Spinner size="small" color={theme.color1.val} />
-                    <Text color={theme.color1}>Signing In...</Text>
-                  </XStack>
-                ) : (
-                  "Login"
-                )}
+                {isLoading ? "Signing In..." : "Login"}
               </Button>
             </Form.Trigger>
           </Form>

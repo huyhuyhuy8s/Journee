@@ -13,14 +13,35 @@ import { ErrorMessage } from "./components/ErrorMessage";
 import { VisitIndicator } from "./components/VisitIndicator";
 import { BackendSyncIndicator } from "./components/BackendSyncIndicator";
 import { BackendApiServices } from "@/services/backendApiServices";
+import { useIsAuthenticated } from "@/contexts/UserContext";
+import { router } from "expo-router";
 
 const Map: React.FC = () => {
+  const isAuthenticated = useIsAuthenticated();
   const { isLocationPermitted, errorMsg, requestPermissions } =
     useLocationPermissions();
   const { location, region, address, getCurrentLocation } =
     useLocationTracking();
   const { isTracking, startTracking, stopTracking } = useBackgroundTracking();
   const { getMovementStateInfo } = useMovementState();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      if (!isAuthenticated) {
+        console.log("User not authenticated, redirecting to login");
+        router.replace("/login");
+        return;
+      }
+
+      const isBackendAuth = await BackendApiServices.isAuthenticated();
+      if (!isBackendAuth) {
+        console.log(
+          "User not authenticated with backend, redirecting to login"
+        );
+        router.replace("/login");
+      }
+    };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const initializeLocationServices = async () => {
@@ -44,13 +65,9 @@ const Map: React.FC = () => {
     const initializeBackend = async () => {
       try {
         // Test backend connection
-        const isConnected = await BackendApiServices.testConnection();
+        const isConnected = await BackendApiServices.testConnection(); // 🆕 Fixed name
         if (isConnected) {
           console.log("✅ Backend connection established");
-
-          // TODO: Implement authentication
-          // const userId = "your-user-id"; // Get from your auth system
-          // await BackendApiService.authenticate(userId);
         } else {
           console.warn("⚠️ Backend connection failed");
         }
@@ -63,6 +80,10 @@ const Map: React.FC = () => {
   }, []);
 
   const movementInfo = getMovementStateInfo();
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <SafeAreaVieww>

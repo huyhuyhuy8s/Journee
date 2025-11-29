@@ -39,9 +39,9 @@ const _Layout = () => {
       }}
     >
       <ExpoTabs.Screen
-        name="index"
+        name="map"
         options={{
-          title: "Maps",
+          title: "Map",
           headerShown: false,
           tabBarIcon: ({ focused }) => (
             <Map
