@@ -2,6 +2,8 @@ require('module-alias/register');
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const swaggerUi = require('swagger-ui-express');
+const openapiDocument = require('./openapi.json');
 
 const { adminDb } = require('./config/firebase');
 
@@ -32,6 +34,9 @@ app.use(cors(corsOptions));
 
 // ✅ Add request logger AFTER body parser but BEFORE routes
 app.use(requestLogger);
+
+// Swagger UI
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument));
 
 // Routes
 app.use('/api/users', userRoutes);
