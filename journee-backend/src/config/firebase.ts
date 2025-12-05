@@ -10,7 +10,7 @@ let serviceAccountKey: ServiceAccount | undefined;
 try {
   const saPath = join(
     process.cwd(),
-    "../../etc/secrets/firebase-service-account.json"
+    "etc/secrets/firebase-service-account.json"
   );
   if (existsSync(saPath)) {
     serviceAccountKey = JSON.parse(readFileSync(saPath, "utf-8"));
