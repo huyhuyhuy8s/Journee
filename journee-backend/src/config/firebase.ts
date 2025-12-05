@@ -3,15 +3,29 @@ import { ServiceAccount } from "firebase-admin/app";
 import { FirebaseApp, FirebaseOptions, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { config } from "@/config/env";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
-const serviceAccountKey = JSON.parse(
-  readFileSync(
-    join(process.cwd(), "src/secrets/serviceAccountKey.json"),
-    "utf-8"
-  )
-);
+let serviceAccountKey: ServiceAccount | undefined;
+try {
+  const saPath = join(
+    process.cwd(),
+    "../../etc/secrets/firebase-service-account.json"
+  );
+  if (existsSync(saPath)) {
+    serviceAccountKey = JSON.parse(readFileSync(saPath, "utf-8"));
+  } else {
+    console.warn(
+      `Firebase service account file not found at ${saPath}, falling back to env or application default credentials.`
+    );
+  }
+} catch (err) {
+  // If parsing fails or readFileSync throws, warn and continue to fallback
+  console.warn(
+    "Error reading firebase service account file, falling back to env or application default credentials.",
+    err
+  );
+}
 
 const serviceAccount =
   config.NODE_ENV === "production"
@@ -31,10 +45,16 @@ const serviceAccount =
       }
     : serviceAccountKey;
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount as ServiceAccount),
-  databaseURL: `https://${config.FIRESTORE_ADMIN_PROJECT_ID}.firebaseio.com`,
-});
+const credential = serviceAccount
+  ? admin.credential.cert(serviceAccount as ServiceAccount)
+  : admin.credential.applicationDefault();
+
+const initOptions: { credential: any; databaseURL?: string } = { credential };
+if (config.FIRESTORE_ADMIN_PROJECT_ID) {
+  initOptions.databaseURL = `https://${config.FIRESTORE_ADMIN_PROJECT_ID}.firebaseio.com`;
+}
+
+admin.initializeApp(initOptions);
 
 const adminDb: admin.firestore.Firestore = admin.firestore();
 
