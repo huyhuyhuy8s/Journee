@@ -4,8 +4,6 @@ import bodyParser from "body-parser";
 import cors, { CorsOptions } from "cors";
 import swaggerUi from "swagger-ui-express";
 import openapiDocument from "@@/openapi.json";
-import dotenv from "dotenv";
-dotenv.config();
 
 import {
   requestLogger,
@@ -41,7 +39,7 @@ app.get("/health", (req: Request, res: Response) => {
   return res.json({
     status: "OK",
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || "development",
+    environment: config.NODE_ENV || "development",
   });
 });
 

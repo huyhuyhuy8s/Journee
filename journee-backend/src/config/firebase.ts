@@ -1,9 +1,17 @@
 import admin from "firebase-admin";
-import {ServiceAccount} from 'firebase-admin/app'
+import { ServiceAccount } from "firebase-admin/app";
 import { FirebaseApp, FirebaseOptions, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { config } from "@/config/env";
-import serviceAccountKey from "./serviceAccountKey.json" with { type: "json" };
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const serviceAccountKey = JSON.parse(
+  readFileSync(
+    join(process.cwd(), "src/secrets/serviceAccountKey.json"),
+    "utf-8"
+  )
+);
 
 const serviceAccount =
   config.NODE_ENV === "production"
@@ -24,9 +32,9 @@ const serviceAccount =
     : serviceAccountKey;
 
 admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount as ServiceAccount),
-    databaseURL: `https://${config.FIRESTORE_ADMIN_PROJECT_ID}.firebaseio.com`
-})
+  credential: admin.credential.cert(serviceAccount as ServiceAccount),
+  databaseURL: `https://${config.FIRESTORE_ADMIN_PROJECT_ID}.firebaseio.com`,
+});
 
 const adminDb: admin.firestore.Firestore = admin.firestore();
 
