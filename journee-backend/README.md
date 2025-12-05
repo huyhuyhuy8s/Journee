@@ -233,7 +233,7 @@ npm run lint
 
 Use Firebase Client SDK for standard operations:
 ```javascript
-const { db } = require('@config/firebase');
+const { db } = require('@/config/firebase');
 const { collection, addDoc, getDocs } = require('firebase/firestore');
 
 // Example CRUD operation
@@ -245,7 +245,7 @@ const createDocument = async (data) => {
 
 Use Firebase Admin SDK for admin operations:
 ```javascript
-const { adminDb, admin } = require('@config/firebase');
+const { adminDb, admin } = require('@/config/firebase');
 
 // Example admin operation
 const verifyToken = async (token) => {

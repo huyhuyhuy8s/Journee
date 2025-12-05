@@ -1,0 +1,42 @@
+{
+  "name": "journee-ai-backend",
+  "version": "1.0.0",
+  "description": "AI-powered backend for Journee app",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "node test.js"
+  },
+  "keywords": [
+    "journee"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "latest",
+    "cors": "^2.8.5",
+    "cross-env": "latest",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "express-async-errors": "latest",
+    "groq-sdk": "^0.36.0",
+    "jsonwebtoken": "latest",
+    "mongoose": "latest",
+    "nodemon": "^3.1.11",
+    "openai": "^6.9.1",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@stylistic/eslint-plugin-js": "latest",
+    "eslint": "latest",
+    "eslint-plugin-react": "latest",
+    "globals": "latest",
+    "supertest": "latest"
+  },
+  "engines": {
+    "node": ">=22.21.0"
+  }
+}

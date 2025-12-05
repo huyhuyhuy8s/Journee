@@ -1,0 +1,543 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Journee AI Backend API",
+    "version": "1.0.0",
+    "description": "AI-powered backend services for Journee travel tracking application including location intelligence, visit analysis, and recommendation engine"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Development server"
+    },
+    {
+      "url": "https://journee-ai-backend.onrender.com",
+      "description": "Production server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "apiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    },
+    "schemas": {
+      "LocationData": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "example": 10.793006
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "example": 106.642205
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double",
+            "example": 16.076
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-11-29T17:54:02.717Z"
+          }
+        },
+        "required": [
+          "latitude",
+          "longitude"
+        ]
+      },
+      "Visit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "visit_1732905842717_abc123"
+          },
+          "userId": {
+            "type": "string",
+            "example": "nAJ3eJoOSwS5TNjbQxdY"
+          },
+          "placeName": {
+            "type": "string",
+            "example": "S1- S2 Đường Nguyễn Hồng Đão"
+          },
+          "address": {
+            "type": "string",
+            "example": "S03 Đ. Nguyễn Hồng Đào, Phường Tân Bình, Tân Bình, Thành phố Hồ Chí Minh, Vietnam"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "example": 10.793006
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "example": 106.642205
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "duration": {
+            "type": "integer",
+            "description": "Duration in minutes",
+            "example": 15
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "brief",
+              "short",
+              "extended"
+            ],
+            "example": "brief"
+          },
+          "confidence": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "example": "high"
+          }
+        }
+      },
+      "AIInsight": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "pattern",
+              "recommendation",
+              "insight",
+              "anomaly"
+            ],
+            "example": "pattern"
+          },
+          "title": {
+            "type": "string",
+            "example": "Frequent Coffee Shop Visits"
+          },
+          "description": {
+            "type": "string",
+            "example": "You visit coffee shops 3-4 times per week, usually in the morning"
+          },
+          "confidence": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0.85
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "Recommendation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "rec_123456"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "place",
+              "route",
+              "activity",
+              "time"
+            ],
+            "example": "place"
+          },
+          "title": {
+            "type": "string",
+            "example": "New Coffee Shop Nearby"
+          },
+          "description": {
+            "type": "string",
+            "example": "Based on your coffee preferences, try this highly-rated cafe 500m from your usual route"
+          },
+          "location": {
+            "$ref": "#/components/schemas/LocationData"
+          },
+          "score": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1,
+            "example": 0.92
+          },
+          "reasoning": {
+            "type": "string",
+            "example": "High ratings + matches your preferences + convenient location"
+          }
+        }
+      },
+      "MovementPattern": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "pattern": {
+            "type": "string",
+            "enum": [
+              "commute",
+              "leisure",
+              "work",
+              "shopping",
+              "exercise"
+            ],
+            "example": "commute"
+          },
+          "frequency": {
+            "type": "string",
+            "enum": [
+              "daily",
+              "weekly",
+              "monthly",
+              "occasional"
+            ],
+            "example": "daily"
+          },
+          "timePattern": {
+            "type": "object",
+            "properties": {
+              "preferredHours": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "example": [
+                  7,
+                  8,
+                  17,
+                  18
+                ]
+              },
+              "preferredDays": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "example": [
+                  "monday",
+                  "tuesday",
+                  "wednesday",
+                  "thursday",
+                  "friday"
+                ]
+              }
+            }
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LocationData"
+            }
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "OK"
+          },
+          "service": {
+            "type": "string",
+            "example": "Journee AI Backend"
+          },
+          "version": {
+            "type": "string",
+            "example": "1.0.0"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "uptime": {
+            "type": "number",
+            "description": "Server uptime in seconds"
+          },
+          "ai_services": {
+            "type": "object",
+            "properties": {
+              "ml_models": {
+                "type": "string",
+                "example": "loaded"
+              },
+              "geocoding": {
+                "type": "string",
+                "example": "active"
+              },
+              "recommendation_engine": {
+                "type": "string",
+                "example": "ready"
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          },
+          "code": {
+            "type": "string",
+            "description": "Error code"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "System health and status endpoints"
+    },
+    {
+      "name": "Location Intelligence",
+      "description": "AI-powered location analysis and processing"
+    },
+    {
+      "name": "Visit Analysis",
+      "description": "Visit pattern detection and analysis"
+    },
+    {
+      "name": "Recommendations",
+      "description": "AI-generated recommendations based on user patterns"
+    },
+    {
+      "name": "Pattern Recognition",
+      "description": "Movement and behavior pattern analysis"
+    },
+    {
+      "name": "Geocoding",
+      "description": "Enhanced geocoding with AI insights"
+    }
+  ],
+  "paths": {
+    "/api/status/generate": {
+      "post": {
+        "summary": "Generate status updates",
+        "description": "Generate social media status updates with AI-powered category detection",
+        "tags": [
+          "Content Generation"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "example": "Having coffee at a nice cafe"
+                  },
+                  "options": {
+                    "type": "object",
+                    "properties": {
+                      "lang": {
+                        "type": "string",
+                        "enum": [
+                          "vi",
+                          "en"
+                        ],
+                        "default": "vi"
+                      },
+                      "count": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "default": 5
+                      },
+                      "category": {
+                        "type": "string",
+                        "enum": [
+                          "travel",
+                          "food",
+                          "mood",
+                          "activity",
+                          "general"
+                        ],
+                        "description": "Auto-detected if not provided"
+                      },
+                      "includeHashtags": {
+                        "type": "boolean",
+                        "default": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status updates generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "hashtags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "metadata": {
+                          "type": "object"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hashtags/generate": {
+      "post": {
+        "summary": "Generate hashtags",
+        "description": "Generate relevant hashtags for social media posts",
+        "tags": [
+          "Content Generation"
+        ],
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "example": "Beautiful sunset at the beach"
+                  },
+                  "options": {
+                    "type": "object",
+                    "properties": {
+                      "lang": {
+                        "type": "string",
+                        "enum": [
+                          "vi",
+                          "en"
+                        ],
+                        "default": "vi"
+                      },
+                      "category": {
+                        "type": "string",
+                        "enum": [
+                          "travel",
+                          "food",
+                          "mood",
+                          "activity",
+                          "general"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hashtags generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "hashtags": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "keywords": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
