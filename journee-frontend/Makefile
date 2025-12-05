@@ -14,6 +14,9 @@ start:
 dev:
 	yarn dev
 
+dev-clear:
+	yarn dev --clear
+
 android:
 	expo run:android
 
@@ -22,6 +25,9 @@ prebuild:
 
 build:
 	eas build --platform android --profile development
+
+build-production:
+	eas build --platform android --profile production
 
 doctor:
 	npx expo-doctor

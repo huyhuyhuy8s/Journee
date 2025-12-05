@@ -55,9 +55,9 @@ export const BackendSyncIndicator: React.FC<BackendSyncIndicatorProps> = ({
   if (!isTracking) return null;
 
   const getSyncStatusColor = () => {
-    if (isRetrying) return "#FFA500"; // Orange
-    if (pendingCount > 0) return "#F44336"; // Red
-    return "#4CAF50"; // Green
+    if (isRetrying) return "#FFA500";
+    if (pendingCount > 0) return "#F44336";
+    return "#4CAF50";
   };
 
   const getSyncStatusText = () => {
@@ -78,7 +78,7 @@ export const BackendSyncIndicator: React.FC<BackendSyncIndicatorProps> = ({
     <TouchableOpacity
       style={{
         position: "absolute",
-        top: 120,
+        bottom: 165,
         right: 10,
         backgroundColor: "rgba(0,0,0,0.8)",
         padding: 8,

@@ -2,49 +2,49 @@ import { TamaguiComponent } from "@tamagui/core";
 
 declare module "@tamagui/core" {
   interface StackStyleBase {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 
   interface TextStyleBase {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 
   interface ButtonStyleBase {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 
   interface InputStyleBase {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 
   interface ViewStyleBase {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 }
 
 // Extend all common Tamagui component props
 declare module "tamagui" {
   interface ButtonProps {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 
   interface InputProps {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 
   interface TextProps {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 
   interface YStackProps {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 
   interface XStackProps {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 
   interface ViewProps {
-    br?: number | string;
+    borderRadius?: number | string;
   }
 }

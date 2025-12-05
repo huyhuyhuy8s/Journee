@@ -3,24 +3,25 @@ import React, { useEffect, useState } from "react";
 import SafeAreaVieww from "@/components/SafeAreaVieww";
 import { Button, Form, Input, Text, useTheme, XStack, YStack } from "tamagui";
 import { Home, MapPinned } from "@tamagui/lucide-icons";
-import { useAuth } from "@/utils/auth";
-import { useIsAuthenticated, useIsLoading } from "@/contexts/UserContext";
+import { useAuth } from "@/utils/auth"; // 🆕 Use main auth directly
 import { Link, router } from "expo-router";
-import { BackendApiServices } from "@/services/backendApiServices"; // 🆕 Fixed name
+import { BackendApiServices } from "@/services/backendApiServices";
 
 const Login = () => {
   const theme = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [localError, setLocalError] = useState(""); // Local error for form validation
+  const [localError, setLocalError] = useState("");
 
-  const { login } = useAuth();
-  const isLoading = useIsLoading(); // Global loading state
-  const isAuthenticated = useIsAuthenticated();
+  // 🆕 Use main auth system directly
+  const { login, isAuthenticated, isLoading } = useAuth();
+
+  console.log("🔐 Login component - isAuthenticated:", isAuthenticated);
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace("/(tabs)/map");
+      console.log("✅ Already authenticated, redirecting to tabs");
+      router.replace("/(tabs)");
     }
   }, [isAuthenticated]);
 
@@ -38,49 +39,36 @@ const Login = () => {
         return;
       }
 
+      console.log("🔐 Attempting login...");
       const result = await login(email, password);
 
       if (!result.success) {
         setLocalError(result.error || "Login failed");
       } else {
-        console.log("Login successful");
+        console.log("✅ Login successful, user data:", result.user);
 
-        // Store user information and token for backend API requests
+        // Store backend credentials
         if (result.user && result.token) {
           try {
-            // Store authentication token for backend API calls
             await BackendApiServices.setAuthToken(result.token);
-
-            // Store user ID for backend requests
             await BackendApiServices.setUserId(
-              result.user.uid || result.user.id
+              result.user.id || result.user.uid
             );
-
-            console.log("✅ User credentials stored for backend API");
-
-            // Test backend connection with new credentials
-            const isBackendConnected =
-              await BackendApiServices.testConnection();
-            if (isBackendConnected) {
-              console.log("✅ Backend connection verified");
-            } else {
-              console.warn("⚠️ Backend connection failed - will retry later");
-            }
-
-            // Navigate to tabs
-            router.replace("/(tabs)/Map");
+            console.log("✅ Backend credentials stored");
           } catch (backendError) {
             console.error(
               "❌ Error storing backend credentials:",
               backendError
             );
-            router.replace("/(tabs)/Map");
           }
         }
+
+        // 🆕 Navigation will happen automatically via useEffect when isAuthenticated becomes true
+        console.log("🚀 Login complete - waiting for auth state update");
       }
     } catch (err: any) {
       setLocalError("An unexpected error occurred. Please try again.");
-      console.error("Login", err?.message);
+      console.error("Login error:", err?.message);
     }
   };
 
@@ -97,7 +85,7 @@ const Login = () => {
           position="absolute"
           t="$10"
           size="$10"
-          color={theme.accent1}
+          color={theme.color2}
         />
         <Home
           position="absolute"
@@ -105,7 +93,7 @@ const Login = () => {
           t="$5"
           color={theme.color1}
           onPress={() => {
-            router.push("/(tabs)/Map");
+            router.push("/(tabs)");
           }}
         />
         <YStack width="90%" gap="$4">
@@ -132,8 +120,8 @@ const Login = () => {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              bg={theme.color3}
-              color={theme.color11}
+              bg={theme.color1}
+              color={theme.color8}
               borderColor={localError ? theme.red8 : theme.borderColor}
               disabled={isLoading}
             />
@@ -145,8 +133,8 @@ const Login = () => {
               passwordRules="required: upper; required: lower; required: digit; max-consecutive: 2; minlength: 8;"
               secureTextEntry
               autoCapitalize="none"
-              bg={theme.color3}
-              color={theme.color11}
+              bg={theme.color1}
+              color={theme.color8}
               borderColor={localError ? theme.red8 : theme.borderColor}
               disabled={isLoading}
             />
@@ -156,7 +144,7 @@ const Login = () => {
                 color={theme.color1}
                 fontSize="$5"
                 fontWeight="bold"
-                bg={theme.accent1}
+                bg={theme.color8}
                 disabled={isLoading}
                 opacity={isLoading ? 0.7 : 1}
               >

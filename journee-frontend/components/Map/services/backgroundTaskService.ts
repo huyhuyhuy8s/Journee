@@ -34,6 +34,13 @@ interface StateSpecificData {
 
 export class BackgroundTaskService {
   private static readonly BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+  private static readonly BASE_URL =
+    process.env.EXPO_PUBLIC_API_URL || "https://journee-1gt3.onrender.com";
+
+  private static cachedToken: string | null = null;
+  private static tokenRefreshPromise: Promise<string | null> | null = null;
+  private static lastTokenRefresh: number = 0;
+  private static readonly TOKEN_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
   // State-specific distance thresholds
   private static readonly SLOW_MOVING_FAR_THRESHOLD = 4000; // 4km
@@ -44,6 +51,103 @@ export class BackgroundTaskService {
   private static readonly SPEED_MONITORING_DURATION = 60 * 1000; // 1 minute
   private static readonly SLOW_MOVING_INTERVAL = 30 * 60 * 1000; // 30 minutes
   private static readonly STATIONARY_INTERVAL = 60 * 60 * 1000; // 1 hour
+
+  private static async getAuthToken(): Promise<string | null> {
+    try {
+      const now = Date.now();
+
+      // Check if we have a recent cached token
+      if (
+        this.cachedToken &&
+        now - this.lastTokenRefresh < this.TOKEN_REFRESH_INTERVAL
+      ) {
+        console.log("🔄 [AUTH] Using cached token (recent)");
+        return this.cachedToken;
+      }
+
+      // Prevent multiple simultaneous token refreshes
+      if (this.tokenRefreshPromise) {
+        console.log("🔄 [AUTH] Waiting for ongoing token refresh...");
+        return await this.tokenRefreshPromise;
+      }
+
+      // Start token refresh process
+      this.tokenRefreshPromise = this.refreshTokenFromStorage();
+      const token = await this.tokenRefreshPromise;
+      this.tokenRefreshPromise = null;
+
+      return token;
+    } catch (error) {
+      console.error("❌ [AUTH] Error in token management:", error);
+      this.tokenRefreshPromise = null;
+      return this.cachedToken; // Fallback to cached token
+    }
+  }
+
+  private static async refreshTokenFromStorage(): Promise<string | null> {
+    try {
+      console.log("🔄 [AUTH] Refreshing token from storage...");
+
+      // Try multiple storage keys for token
+      const tokenSources = [
+        "authToken",
+        "userToken",
+        "@journee/authToken",
+        "auth_token",
+      ];
+
+      let token: string | null = null;
+
+      for (const key of tokenSources) {
+        try {
+          const storedToken = await AsyncStorage.getItem(key);
+          if (storedToken && storedToken.length > 20) {
+            // Basic token validation
+            token = storedToken;
+            console.log(`✅ [AUTH] Token found in key: ${key}`);
+            break;
+          }
+        } catch (error) {
+          console.warn(`⚠️ [AUTH] Failed to read from ${key}:`, error);
+        }
+      }
+
+      if (token) {
+        // Update cache
+        this.cachedToken = token;
+        this.lastTokenRefresh = Date.now();
+
+        // Store token in background-accessible location
+        await AsyncStorage.setItem("backgroundAuthToken", token);
+        console.log("✅ [AUTH] Token cached for background use");
+
+        return token;
+      }
+
+      console.warn("⚠️ [AUTH] No valid token found in any storage location");
+      return null;
+    } catch (error) {
+      console.error("❌ [AUTH] Error refreshing token:", error);
+      return null;
+    }
+  }
+
+  static async initializeTokenCache(token: string): Promise<void> {
+    try {
+      this.cachedToken = token;
+      this.lastTokenRefresh = Date.now();
+
+      // Store in multiple locations for background access
+      await Promise.all([
+        AsyncStorage.setItem("backgroundAuthToken", token),
+        AsyncStorage.setItem("authToken", token),
+      ]);
+
+      console.log("✅ [AUTH] Token cache initialized for background tasks");
+    } catch (error) {
+      console.error("❌ [AUTH] Error initializing token cache:", error);
+    }
+  }
 
   static async analyzeMovement(
     currentLocation: Location.LocationObject,
@@ -85,6 +189,13 @@ export class BackgroundTaskService {
   ): Promise<void> {
     try {
       console.log("🔄 Processing background location...");
+
+      const token = await this.getAuthToken();
+      if (!token) {
+        console.warn(
+          "⚠️ No auth token available, skipping location processing."
+        );
+      }
 
       const [
         lastLocationStr,
@@ -172,7 +283,9 @@ export class BackgroundTaskService {
           console.log(
             `🏪 Visit detected: ${detectedVisit.place} (${detectedVisit.visitType})`
           );
-          await this.sendVisitToBackend(detectedVisit);
+
+          // 🆕 Enhanced visit sending with better error handling
+          await this.sendVisitToBackendSafely(detectedVisit);
         }
       } catch (visitError) {
         console.error("❌ Error in visit detection:", visitError);
@@ -223,6 +336,219 @@ export class BackgroundTaskService {
       await StorageService.storeLocationData(locationData);
     } catch (error) {
       console.error("❌ Error handling background location:", error);
+
+      // 🆕 Don't let background errors crash the app
+      try {
+        await this.handleBackgroundError(error, location);
+      } catch (recoveryError) {
+        console.error("❌ Error in background error recovery:", recoveryError);
+      }
+    }
+  }
+
+  static setCachedToken(token: string): void {
+    this.cachedToken = token;
+  }
+
+  static async clearTokenCache(): Promise<void> {
+    try {
+      this.cachedToken = null;
+      this.lastTokenRefresh = 0;
+      this.tokenRefreshPromise = null;
+
+      await AsyncStorage.multiRemove([
+        "backgroundAuthToken",
+        "authToken",
+        "userToken",
+        "@journee/authToken",
+      ]);
+
+      console.log("✅ [AUTH] Token cache cleared");
+    } catch (error) {
+      console.error("❌ [AUTH] Error clearing token cache:", error);
+    }
+  }
+
+  static async createVisit(visitData: any): Promise<any> {
+    try {
+      const token = await this.getAuthToken();
+
+      if (!token) {
+        // 🆕 Instead of throwing error, queue for retry
+        console.warn(
+          "⚠️ [BACKEND] No token for visit creation, queuing for retry"
+        );
+        await this.queuePendingRequest("visits", "POST", visitData);
+        return { queued: true };
+      }
+
+      console.log(
+        "📤 [BACKEND] Creating visit...",
+        JSON.stringify(visitData, null, 2)
+      );
+
+      const response = await fetch(`${this.BASE_URL}/api/visits`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(visitData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("✅ [BACKEND] Visit created successfully:", result);
+        return result;
+      } else {
+        const errorText = await response.text();
+        console.error(
+          `❌ [BACKEND] Visit creation failed: ${response.status} ${errorText}`
+        );
+
+        // Queue for retry if it's a temporary error
+        if (response.status >= 500 || response.status === 401) {
+          await this.queuePendingRequest("visits", "POST", visitData);
+        }
+
+        throw new Error(`Visit creation failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("❌ [BACKEND] Error creating visit:", error);
+
+      // Queue for retry on network errors
+      await this.queuePendingRequest("visits", "POST", visitData);
+      throw error;
+    }
+  }
+
+  private static async queuePendingRequest(
+    endpoint: string,
+    method: string,
+    data: any
+  ): Promise<void> {
+    try {
+      const pendingRequests =
+        (await AsyncStorage.getItem("pendingRequests")) || "[]";
+      const requests = JSON.parse(pendingRequests);
+
+      const newRequest = {
+        id: Date.now().toString(),
+        endpoint,
+        method,
+        data,
+        timestamp: Date.now(),
+        retries: 0,
+      };
+
+      requests.push(newRequest);
+      await AsyncStorage.setItem("pendingRequests", JSON.stringify(requests));
+
+      console.log("💾 [BACKEND] Stored pending request for retry");
+    } catch (error) {
+      console.error("❌ [BACKEND] Error queuing request:", error);
+    }
+  }
+
+  static async getPendingRequestsCount(): Promise<number> {
+    try {
+      const pendingRequests =
+        (await AsyncStorage.getItem("pendingRequests")) || "[]";
+      const requests = JSON.parse(pendingRequests);
+      return requests.length;
+    } catch (error) {
+      console.error("❌ [BACKEND] Error getting pending count:", error);
+      return 0;
+    }
+  }
+
+  static async retryPendingRequests(): Promise<void> {
+    try {
+      const token = await this.getAuthToken();
+
+      if (!token) {
+        console.warn("⚠️ [BACKEND] No token available for retry, skipping");
+        return;
+      }
+
+      const pendingRequests =
+        (await AsyncStorage.getItem("pendingRequests")) || "[]";
+      const requests = JSON.parse(pendingRequests);
+
+      if (requests.length === 0) {
+        console.log("ℹ️ [BACKEND] No pending requests to retry");
+        return;
+      }
+
+      console.log(
+        `🔄 [BACKEND] Retrying ${requests.length} pending requests...`
+      );
+
+      const successfulRequests: string[] = [];
+
+      for (const request of requests) {
+        try {
+          const response = await fetch(
+            `${this.BASE_URL}/api/${request.endpoint}`,
+            {
+              method: request.method,
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(request.data),
+            }
+          );
+
+          if (response.ok) {
+            console.log(
+              `✅ [BACKEND] Retry successful for ${request.endpoint}`
+            );
+            successfulRequests.push(request.id);
+          } else {
+            console.error(
+              `❌ [BACKEND] Retry failed for ${request.endpoint}: ${response.status}`
+            );
+
+            // Remove request if it's been failing for too long or is a permanent error
+            if (
+              request.retries > 5 ||
+              (response.status >= 400 && response.status < 500)
+            ) {
+              successfulRequests.push(request.id);
+            } else {
+              request.retries = (request.retries || 0) + 1;
+            }
+          }
+        } catch (error) {
+          console.error(
+            `❌ [BACKEND] Error retrying ${request.endpoint}:`,
+            error
+          );
+          request.retries = (request.retries || 0) + 1;
+
+          // Remove if too many retries
+          if (request.retries > 5) {
+            successfulRequests.push(request.id);
+          }
+        }
+      }
+
+      // Remove successful/failed requests
+      const remainingRequests = requests.filter(
+        (req: any) => !successfulRequests.includes(req.id)
+      );
+
+      await AsyncStorage.setItem(
+        "pendingRequests",
+        JSON.stringify(remainingRequests)
+      );
+
+      console.log(
+        `✅ [BACKEND] Retry complete: ${successfulRequests.length} processed, ${remainingRequests.length} remaining`
+      );
+    } catch (error) {
+      console.error("❌ [BACKEND] Error during retry:", error);
     }
   }
 
@@ -613,9 +939,6 @@ export class BackgroundTaskService {
     };
   }
 
-  /**
-   * Handle FAST_MOVING state logic (existing logic)
-   */
   private static async handleFastMovingLogic(
     location: Location.LocationObject,
     movementAnalysis: MovementAnalysis,
@@ -627,33 +950,96 @@ export class BackgroundTaskService {
     stateChanged: boolean;
     updatedStateData: StateSpecificData;
   }> {
-    // Use existing fast moving logic with speed buffer validation
-    const speedBuffer = stateData.speedSamples.slice(-10); // Use last 10 samples
+    // Build longer speed buffer for more stable decisions
+    const speedBuffer = stateData.speedSamples.slice(-15); // Use last 15 samples
     speedBuffer.push(movementAnalysis.currentSpeed);
 
-    if (speedBuffer.length > 10) {
-      speedBuffer.splice(0, speedBuffer.length - 10);
+    if (speedBuffer.length > 15) {
+      speedBuffer.splice(0, speedBuffer.length - 15);
+    }
+
+    // 🆕 Require minimum samples before state change
+    if (speedBuffer.length < 8) {
+      console.log(
+        `🔄 FAST_MOVING: Collecting samples (${speedBuffer.length}/8)`
+      );
+      return {
+        newState: "FAST_MOVING",
+        stateChanged: false,
+        updatedStateData: {
+          ...stateData,
+          speedSamples: speedBuffer,
+        },
+      };
     }
 
     const averageSpeed =
       speedBuffer.reduce((sum, speed) => sum + speed, 0) / speedBuffer.length;
-    const potentialNewState = determineMovementState(averageSpeed);
+    const maxSpeed = Math.max(...speedBuffer);
+    const minSpeed = Math.min(...speedBuffer);
 
-    if (potentialNewState.name !== "FAST_MOVING") {
+    console.log(
+      `🔍 FAST_MOVING analysis: avg=${averageSpeed.toFixed(
+        2
+      )}, max=${maxSpeed.toFixed(2)}, min=${minSpeed.toFixed(2)}`
+    );
+
+    // 🆕 More conservative thresholds for state changes
+    let potentialNewState = "FAST_MOVING";
+
+    // Only transition to STATIONARY if consistently very slow
+    if (
+      averageSpeed < 0.3 &&
+      maxSpeed < 1.0 &&
+      speedBuffer.every((speed) => speed < 2.0)
+    ) {
+      potentialNewState = "STATIONARY";
+    }
+    // Transition to SLOW_MOVING if moderately slow
+    else if (averageSpeed < 2.0 && maxSpeed < 5.0) {
+      potentialNewState = "SLOW_MOVING";
+    }
+
+    if (potentialNewState !== "FAST_MOVING") {
+      console.log(
+        `🔍 Considering transition FAST_MOVING → ${potentialNewState}`
+      );
+
+      // 🆕 Add time-based stability requirement
+      const stateStabilityTime = 90000; // 1.5 minutes
+      const timeInCurrentState = now - (stateData.lastLocationCheck || now);
+
+      if (timeInCurrentState < stateStabilityTime) {
+        console.log(
+          `⏳ FAST_MOVING: Need ${(
+            (stateStabilityTime - timeInCurrentState) /
+            1000
+          ).toFixed(0)}s more for stable transition`
+        );
+        return {
+          newState: "FAST_MOVING",
+          stateChanged: false,
+          updatedStateData: {
+            ...stateData,
+            speedSamples: speedBuffer,
+          },
+        };
+      }
+
       const isValidChange = await validateStateChange(
         "FAST_MOVING",
-        potentialNewState.name,
+        potentialNewState,
         speedBuffer,
         averageSpeed
       );
 
       if (isValidChange) {
         console.log(
-          `🔄 FAST_MOVING → ${potentialNewState.name}: Validated state change`
+          `🔄 FAST_MOVING → ${potentialNewState}: Validated state change`
         );
 
         return {
-          newState: potentialNewState.name,
+          newState: potentialNewState,
           stateChanged: true,
           updatedStateData: {
             lastLocationCheck: now,
@@ -662,6 +1048,10 @@ export class BackgroundTaskService {
             currentPhase: "waiting",
           },
         };
+      } else {
+        console.log(
+          `❌ FAST_MOVING → ${potentialNewState}: Transition not validated`
+        );
       }
     }
 
@@ -671,13 +1061,11 @@ export class BackgroundTaskService {
       updatedStateData: {
         ...stateData,
         speedSamples: speedBuffer,
+        lastLocationCheck: now, // Update last check time
       },
     };
   }
 
-  /**
-   * Process final location update using enhanced geocoding
-   */
   private static async processFinalLocationUpdate(
     location: Location.LocationObject
   ): Promise<void> {
@@ -739,9 +1127,6 @@ export class BackgroundTaskService {
     }
   }
 
-  /**
-   * Send location update to backend
-   */
   static async sendLocationUpdateToBackend(locationData: any): Promise<void> {
     try {
       if (!this.BACKEND_URL) {
@@ -780,9 +1165,110 @@ export class BackgroundTaskService {
     }
   }
 
-  /**
-   * Send visit to backend
-   */
+  private static async sendVisitToBackendSafely(visit: any): Promise<void> {
+    try {
+      const token = await this.getAuthToken();
+
+      if (!token) {
+        console.warn("⚠️ [VISIT] No token available, queuing visit for later");
+        await this.queuePendingRequest("visits", "POST", {
+          id: visit.id,
+          place: visit.place,
+          address: visit.address,
+          latitude: visit.latitude,
+          longitude: visit.longitude,
+          arrivalTime: visit.arrivalTime,
+          departureTime: visit.departureTime,
+          duration: visit.duration,
+          confidence: visit.confidence,
+          source: visit.source,
+          visitType: visit.visitType,
+          metadata: visit.metadata,
+        });
+        return;
+      }
+
+      // Try to send visit with token
+      const success = await BackendApiServices.sendVisit({
+        id: visit.id,
+        place: visit.place,
+        address: visit.address,
+        latitude: visit.latitude,
+        longitude: visit.longitude,
+        arrivalTime: visit.arrivalTime,
+        departureTime: visit.departureTime,
+        duration: visit.duration,
+        confidence: visit.confidence,
+        source: visit.source,
+        visitType: visit.visitType,
+        metadata: visit.metadata,
+      });
+
+      if (success) {
+        console.log(`✅ Visit sent to backend: ${visit.place}`);
+      } else {
+        console.log(`⏳ Visit queued for retry: ${visit.place}`);
+      }
+    } catch (error) {
+      console.error("❌ Error sending visit to backend:", error);
+
+      // Queue for retry
+      await this.queuePendingRequest("visits", "POST", {
+        id: visit.id,
+        place: visit.place,
+        // ... other visit properties
+      });
+    }
+  }
+
+  private static async handleBackgroundError(
+    error: any,
+    location?: Location.LocationObject
+  ): Promise<void> {
+    try {
+      console.log("🔄 [RECOVERY] Handling background error...");
+
+      // Log error details for debugging
+      const errorDetails = {
+        message: error.message || "Unknown error",
+        stack: error.stack || "No stack trace",
+        location: location
+          ? {
+              lat: location.coords.latitude,
+              lng: location.coords.longitude,
+              timestamp: location.timestamp,
+            }
+          : null,
+        timestamp: Date.now(),
+        authTokenAvailable: !!this.cachedToken,
+      };
+
+      await AsyncStorage.setItem(
+        "lastBackgroundError",
+        JSON.stringify(errorDetails)
+      );
+
+      // Try to refresh token if auth error
+      if (
+        error.message?.includes("authentication") ||
+        error.message?.includes("token")
+      ) {
+        console.log("🔄 [RECOVERY] Auth error detected, refreshing token...");
+        this.cachedToken = null;
+        this.lastTokenRefresh = 0;
+        await this.getAuthToken();
+      }
+
+      // Continue with degraded functionality
+      console.log("✅ [RECOVERY] Background task recovery complete");
+    } catch (recoveryError) {
+      console.error(
+        "❌ [RECOVERY] Failed to handle background error:",
+        recoveryError
+      );
+    }
+  }
+
   static async sendVisitToBackend(visit: any): Promise<void> {
     try {
       const success = await BackendApiServices.sendVisit({
@@ -809,8 +1295,6 @@ export class BackgroundTaskService {
       console.error("❌ Error sending visit to backend:", error);
     }
   }
-
-  // ... rest of existing methods (startBackgroundTracking, stopBackgroundTracking, etc.) remain the same
 
   static async startBackgroundTracking(): Promise<boolean> {
     try {
@@ -953,10 +1437,10 @@ export class BackgroundTaskService {
   }
 }
 
-// Initialize TaskManager
 TaskManager.defineTask(
   BACKGROUND_LOCATION_TASK,
   async ({ data, error }: { data: any; error: any }) => {
+    const taskStartTime = Date.now();
     console.log("🌙 Background task triggered:", new Date().toISOString());
 
     if (error) {
@@ -972,7 +1456,42 @@ TaskManager.defineTask(
           lng: locations[0].coords.longitude.toFixed(6),
           accuracy: locations[0].coords.accuracy,
         });
-        await BackgroundTaskService.handleBackgroundLocation(locations[0]);
+
+        try {
+          await BackgroundTaskService.handleBackgroundLocation(locations[0]);
+
+          const processingTime = Date.now() - taskStartTime;
+          console.log(`⏱️ Background task completed in ${processingTime}ms`);
+
+          // Performance monitoring
+          if (processingTime > 5000) {
+            console.warn(`⚠️ Slow background task: ${processingTime}ms`);
+          }
+        } catch (taskError: any) {
+          const processingTime = Date.now() - taskStartTime;
+          console.error(
+            `❌ Background task failed after ${processingTime}ms:`,
+            taskError
+          );
+
+          // Don't let background task errors crash the app
+          try {
+            await AsyncStorage.setItem(
+              "lastBackgroundTaskError",
+              JSON.stringify({
+                error: taskError?.message || "Unknown error",
+                stack: taskError?.stack || "No stack trace",
+                timestamp: Date.now(),
+                location: {
+                  lat: locations[0].coords.latitude,
+                  lng: locations[0].coords.longitude,
+                },
+              })
+            );
+          } catch (storageError) {
+            console.error("❌ Failed to store error info:", storageError);
+          }
+        }
       }
     }
   }

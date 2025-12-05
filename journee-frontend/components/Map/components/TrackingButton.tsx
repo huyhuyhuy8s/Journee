@@ -18,8 +18,8 @@ export const TrackingButton: React.FC<TrackingButtonProps> = ({
       onPress={onStop}
       style={{
         position: "absolute",
-        top: 50,
-        right: 10,
+        top: 150,
+        left: 10,
         backgroundColor: "#FF6B6B",
       }}
     >
@@ -32,8 +32,8 @@ export const TrackingButton: React.FC<TrackingButtonProps> = ({
       onPress={onStart}
       style={{
         position: "absolute",
-        top: 50,
-        right: 10,
+        top: 150,
+        left: 10,
         backgroundColor: "#4CAF50",
       }}
     >

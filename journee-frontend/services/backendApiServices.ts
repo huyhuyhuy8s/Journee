@@ -46,35 +46,77 @@ interface JournalEntry {
 }
 
 export class BackendApiServices {
-  private static readonly BACKEND_URL =
-    process.env.EXPO_PUBLIC_BACKEND_URL || "https://journee-1gt3.onrender.com";
-  private static readonly API_BASE = `${this.BACKEND_URL}/api`;
+  private static readonly BASE_URL =
+    process.env.EXPO_PUBLIC_API_URL || "https://journee-1gt3.onrender.com";
+  private static readonly HEALTH_CHECK_TIMEOUT = 10000; // 10 seconds
 
-  // Storage keys
   private static readonly AUTH_TOKEN_KEY = "backend_auth_token";
   private static readonly USER_ID_KEY = "backend_user_id";
   private static readonly PENDING_REQUESTS_KEY = "pending_backend_requests";
+
+  /**
+   * Store authentication token
+   */
+  static async setAuthToken(token: string): Promise<void> {
+    try {
+      // Store token in multiple locations for reliability
+      await Promise.all([
+        AsyncStorage.setItem("authToken", token),
+        AsyncStorage.setItem("backgroundAuthToken", token),
+        AsyncStorage.setItem("userToken", token),
+        SecureStore.setItemAsync(this.AUTH_TOKEN_KEY, token),
+      ]);
+      console.log("✅ [BACKEND_API] Auth token stored successfully");
+    } catch (error) {
+      console.error("❌ [BACKEND_API] Error storing auth token:", error);
+      throw error;
+    }
+  }
 
   /**
    * Get authentication token from secure storage
    */
   private static async getAuthToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(this.AUTH_TOKEN_KEY);
-    } catch (error) {
-      console.error("❌ Error getting auth token:", error);
-      return null;
-    }
-  }
+      // Try multiple keys in order of priority
+      const tokenKeys = [
+        "authToken", // Main app token
+        "backgroundAuthToken", // Background service token
+        "userToken",
+        "@journee/authToken",
+      ];
 
-  /**
-   * Store authentication token securely
-   */
-  static async setAuthToken(token: string): Promise<void> {
-    try {
-      await SecureStore.setItemAsync(this.AUTH_TOKEN_KEY, token);
+      for (const key of tokenKeys) {
+        try {
+          const token = await AsyncStorage.getItem(key);
+          if (token && token.length > 20) {
+            console.log(`🔑 [BACKEND_API] Token found in: ${key}`);
+            return token;
+          }
+        } catch (error) {
+          console.warn(`⚠️ [BACKEND_API] Failed to read ${key}:`, error);
+        }
+      }
+
+      // Fallback to SecureStore
+      try {
+        const token = await SecureStore.getItemAsync(this.AUTH_TOKEN_KEY);
+        if (token && token.length > 20) {
+          console.log(`🔑 [BACKEND_API] Token found in SecureStore`);
+          return token;
+        }
+      } catch (error) {
+        console.warn(
+          `⚠️ [BACKEND_API] Failed to read from SecureStore:`,
+          error
+        );
+      }
+
+      console.error("❌ [BACKEND_API] No authentication token found");
+      return null;
     } catch (error) {
-      console.error("❌ Error storing auth token:", error);
+      console.error("❌ [BACKEND_API] Error getting auth token:", error);
+      return null;
     }
   }
 
@@ -111,9 +153,11 @@ export class BackendApiServices {
   ): Promise<Response | null> {
     try {
       const token = await this.getAuthToken();
+
       if (!token) {
-        console.error("❌ No authentication token available");
-        return null;
+        const error = new Error("❌ No authentication token available");
+        console.error(error.message);
+        throw error;
       }
 
       const headers: HeadersInit = {
@@ -127,38 +171,47 @@ export class BackendApiServices {
         body: body ? JSON.stringify(body) : undefined,
       };
 
-      console.log(`🌐 Making ${method} request to: ${endpoint}`);
+      console.log(`🌐 [BACKEND_API] Making ${method} request to: ${endpoint}`);
 
-      const response = await fetch(`${this.API_BASE}${endpoint}`, config);
+      const response = await fetch(`${this.BASE_URL}${endpoint}`, config);
 
       if (!response.ok) {
         console.error(
-          `❌ API request failed: ${response.status} ${response.statusText}`
+          `❌ [BACKEND_API] Request failed: ${response.status} ${response.statusText}`
         );
 
         // Handle authentication errors
         if (response.status === 401) {
-          console.error("🔐 Authentication failed - token may be expired");
-          // You could trigger re-authentication here
+          console.error(
+            "🔐 [BACKEND_API] Authentication failed - token may be expired"
+          );
+          // Clear invalid token
+          await AsyncStorage.multiRemove([
+            "authToken",
+            "backgroundAuthToken",
+            "userToken",
+            "@journee/authToken",
+          ]);
         }
 
-        return response; // Return failed response for error handling
+        return response;
       }
 
-      console.log(`✅ ${method} request successful: ${endpoint}`);
+      console.log(`✅ [BACKEND_API] ${method} request successful: ${endpoint}`);
       return response;
     } catch (error) {
-      console.error(`❌ Error making request to ${endpoint}:`, error);
-      return null;
+      console.error(
+        `❌ [BACKEND_API] Error making request to ${endpoint}:`,
+        error
+      );
+      throw error;
     }
   }
 
   /**
    * Send location update to backend
    */
-  static async sendLocationUpdate(
-    locationData: LocationUpdatePayload
-  ): Promise<boolean> {
+  static async sendLocationUpdate(locationData: any): Promise<boolean> {
     try {
       const payload = {
         latitude: locationData.latitude,
@@ -178,23 +231,24 @@ export class BackendApiServices {
       };
 
       const response = await this.makeAuthenticatedRequest(
-        "/locations",
+        "/api/locations",
         "POST",
         payload
       );
 
       if (response && response.ok) {
         const result = await response.json();
-        console.log("✅ Location update sent successfully:", result);
+        console.log(
+          "✅ [BACKEND_API] Location update sent successfully:",
+          result
+        );
         return true;
       } else {
-        // Store for retry if network failed
         await this.storePendingRequest("location", payload);
         return false;
       }
     } catch (error) {
-      console.error("❌ Error sending location update:", error);
-      // Store for retry
+      console.error("❌ [BACKEND_API] Error sending location update:", error);
       await this.storePendingRequest("location", locationData);
       return false;
     }
@@ -203,7 +257,7 @@ export class BackendApiServices {
   /**
    * Send visit data to backend
    */
-  static async sendVisit(visitData: VisitPayload): Promise<boolean> {
+  static async sendVisit(visitData: any): Promise<boolean> {
     try {
       const payload = {
         externalId: visitData.id,
@@ -226,28 +280,34 @@ export class BackendApiServices {
         },
       };
 
+      console.log("📤 [BACKEND_API] Sending visit data...");
+
       const response = await this.makeAuthenticatedRequest(
-        "/visits",
+        "/api/visits",
         "POST",
         payload
       );
 
       if (response && response.ok) {
         const result = await response.json();
-        console.log("✅ Visit sent successfully:", result);
-
-        // Automatically create journal entry for this visit
-        await this.createJournalEntryForVisit(visitData);
-
+        console.log("✅ [BACKEND_API] Visit sent successfully:", result);
         return true;
       } else {
-        // Store for retry
+        console.log("❌ [BACKEND_API] Visit sending failed, will be queued");
         await this.storePendingRequest("visit", payload);
         return false;
       }
-    } catch (error) {
-      console.error("❌ Error sending visit:", error);
-      // Store for retry
+    } catch (error: any) {
+      console.error("❌ [BACKEND_API] Error sending visit:", error);
+
+      // Only throw auth errors, queue others
+      if (
+        error.message?.includes("authentication") ||
+        error.message?.includes("token")
+      ) {
+        throw error;
+      }
+
       await this.storePendingRequest("visit", visitData);
       return false;
     }
@@ -424,9 +484,9 @@ export class BackendApiServices {
         this.PENDING_REQUESTS_KEY,
         JSON.stringify(pendingRequests)
       );
-      console.log(`💾 Stored pending ${type} request for retry`);
+      console.log(`💾 [BACKEND_API] Stored pending ${type} request for retry`);
     } catch (error) {
-      console.error("❌ Error storing pending request:", error);
+      console.error("❌ [BACKEND_API] Error storing pending request:", error);
     }
   }
 
@@ -435,6 +495,13 @@ export class BackendApiServices {
    */
   static async retryPendingRequests(): Promise<void> {
     try {
+      // Check if we have a token first
+      const token = await this.getAuthToken();
+      if (!token) {
+        console.log("⚠️ [BACKEND_API] No token available for retry, skipping");
+        return;
+      }
+
       const existingData = await AsyncStorage.getItem(
         this.PENDING_REQUESTS_KEY
       );
@@ -443,15 +510,17 @@ export class BackendApiServices {
       const pendingRequests = JSON.parse(existingData);
       if (!pendingRequests.length) return;
 
-      console.log(`🔄 Retrying ${pendingRequests.length} pending requests`);
+      console.log(
+        `🔄 [BACKEND_API] Retrying ${pendingRequests.length} pending requests`
+      );
 
       const successfulRequests: string[] = [];
-      const maxRetries = 3;
+      const maxRetries = 5;
 
       for (const request of pendingRequests) {
         if (request.retryCount >= maxRetries) {
           console.log(
-            `⏭️ Skipping request ${request.id} - max retries reached`
+            `⏭️ [BACKEND_API] Skipping request ${request.id} - max retries reached`
           );
           successfulRequests.push(request.id);
           continue;
@@ -467,23 +536,30 @@ export class BackendApiServices {
             case "visit":
               success = await this.sendVisit(request.data);
               break;
-            case "journal_entry":
-              success = await this.createJournalEntry(request.data);
-              break;
           }
 
           if (success) {
             successfulRequests.push(request.id);
-            console.log(`✅ Successfully retried ${request.type} request`);
+            console.log(
+              `✅ [BACKEND_API] Successfully retried ${request.type} request`
+            );
           } else {
             request.retryCount++;
             console.log(
-              `❌ Retry failed for ${request.type} request (attempt ${request.retryCount})`
+              `❌ [BACKEND_API] Retry failed for ${request.type} request (attempt ${request.retryCount})`
             );
           }
-        } catch (error) {
+        } catch (error: any) {
           request.retryCount++;
-          console.error(`❌ Error retrying ${request.type} request:`, error);
+          console.error(
+            `❌ [BACKEND_API] Error retrying ${request.type} request:`,
+            error
+          );
+
+          // Remove on auth errors
+          if (error.message?.includes("authentication")) {
+            successfulRequests.push(request.id);
+          }
         }
       }
 
@@ -499,11 +575,11 @@ export class BackendApiServices {
 
       if (successfulRequests.length > 0) {
         console.log(
-          `✅ Successfully processed ${successfulRequests.length} pending requests`
+          `✅ [BACKEND_API] Successfully processed ${successfulRequests.length} pending requests`
         );
       }
     } catch (error) {
-      console.error("❌ Error retrying pending requests:", error);
+      console.error("❌ [BACKEND_API] Error retrying pending requests:", error);
     }
   }
 
@@ -541,16 +617,148 @@ export class BackendApiServices {
    * Test backend connection
    */
   static async testConnection(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.BACKEND_URL}/api/health`);
-      const isHealthy = response.ok;
+    const healthEndpoints = [
+      "/api/health",
+      "/health",
+      "/api/status",
+      "/ping",
+      "/api/users/validate-token", // Since this works, use as fallback
+      "/", // Root endpoint
+    ];
 
-      console.log(`🏥 Backend health check: ${isHealthy ? "OK" : "FAILED"}`);
-      return isHealthy;
+    for (const endpoint of healthEndpoints) {
+      try {
+        console.log(
+          `🔍 [BACKEND] Testing endpoint: ${this.BASE_URL}${endpoint}`
+        );
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(
+          () => controller.abort(),
+          this.HEALTH_CHECK_TIMEOUT
+        );
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        };
+
+        // Add auth token for protected endpoints
+        if (endpoint.includes("/api/users/validate-token")) {
+          const token = await AsyncStorage.getItem("authToken");
+          if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+          }
+        }
+
+        const response = await fetch(`${this.BASE_URL}${endpoint}`, {
+          method: "GET",
+          headers,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        console.log(`🔍 [BACKEND] ${endpoint} response: ${response.status}`);
+
+        if (response.ok) {
+          console.log(`✅ [BACKEND] Connected via: ${endpoint}`);
+          return true;
+        } else if (response.status === 404) {
+          console.log(`⚠️ [BACKEND] ${endpoint} not found, trying next...`);
+          continue; // Try next endpoint
+        } else {
+          console.log(`⚠️ [BACKEND] ${endpoint} returned: ${response.status}`);
+        }
+      } catch (error: any) {
+        if (error.name === "AbortError") {
+          console.error(`❌ [BACKEND] ${endpoint} timeout`);
+        } else {
+          console.error(`❌ [BACKEND] ${endpoint} error:`, error.message);
+        }
+        continue; // Try next endpoint
+      }
+    }
+
+    console.error(`❌ [BACKEND] All health check endpoints failed`);
+    return false;
+  }
+
+  static async testConnectionSimple(): Promise<boolean> {
+    try {
+      console.log(`🌐 [BACKEND] Testing with working endpoint...`);
+
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        console.log("⚠️ [BACKEND] No token available for health check");
+        return false;
+      }
+
+      const response = await fetch(
+        `${this.BASE_URL}/api/users/validate-token`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const isConnected = response.ok;
+      console.log(
+        `🔍 [BACKEND] Simple health check: ${
+          isConnected ? "SUCCESS" : "FAILED"
+        } (${response.status})`
+      );
+      return isConnected;
     } catch (error) {
-      console.error("❌ Backend connection test failed:", error);
+      console.error("❌ [BACKEND] Simple health check error:", error);
       return false;
     }
+  }
+
+  static async testConnectionDetailed(): Promise<{
+    isConnected: boolean;
+    endpoint: string | null;
+    error?: string;
+  }> {
+    const endpoints = ["/api/health", "/health", "/api/status", "/ping"];
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log(
+          `🔍 [BACKEND] Testing endpoint: ${this.BASE_URL}${endpoint}`
+        );
+
+        const response = await fetch(`${this.BASE_URL}${endpoint}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          console.log(`✅ [BACKEND] Connected via: ${endpoint}`);
+          return {
+            isConnected: true,
+            endpoint: endpoint,
+          };
+        }
+      } catch (error) {
+        console.log(
+          `❌ [BACKEND] Failed ${endpoint}:`,
+          (error as Error).message
+        );
+        continue;
+      }
+    }
+
+    return {
+      isConnected: false,
+      endpoint: null,
+      error: "All health check endpoints failed",
+    };
   }
 
   /**
@@ -558,7 +766,7 @@ export class BackendApiServices {
    */
   static async authenticate(userId: string, token: string): Promise<boolean> {
     try {
-      console.log("🔐 Authenticating user:", userId);
+      console.log("🔐 [BACKEND_API] Authenticating user:", userId);
 
       // Store credentials
       await this.setAuthToken(token);
@@ -571,36 +779,65 @@ export class BackendApiServices {
       );
 
       if (response && response.ok) {
-        console.log("✅ Authentication successful");
+        console.log("✅ [BACKEND_API] Authentication successful");
         return true;
       } else {
-        console.error("❌ Authentication failed - invalid token");
+        console.error("❌ [BACKEND_API] Authentication failed - invalid token");
         return false;
       }
     } catch (error) {
-      console.error("❌ Authentication error:", error);
+      console.error("❌ [BACKEND_API] Authentication error:", error);
       return false;
     }
   }
 
+  /**
+   * Clear authentication data
+   */
   static async clearAuth(): Promise<void> {
     try {
-      await SecureStore.deleteItemAsync(this.AUTH_TOKEN_KEY);
-      await AsyncStorage.removeItem(this.USER_ID_KEY);
-      console.log("🔓 Authentication cleared");
+      await Promise.all([
+        SecureStore.deleteItemAsync(this.AUTH_TOKEN_KEY),
+        AsyncStorage.multiRemove([
+          this.USER_ID_KEY,
+          "authToken",
+          "backgroundAuthToken",
+          "userToken",
+          "@journee/authToken",
+        ]),
+      ]);
+      console.log("🔓 [BACKEND_API] Authentication cleared");
     } catch (error) {
-      console.error("❌ Error clearing auth:", error);
+      console.error("❌ [BACKEND_API] Error clearing auth:", error);
     }
   }
 
   static async isAuthenticated(): Promise<boolean> {
     try {
-      const token = await this.getAuthToken();
-      const userId = await this.getUserId();
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        console.log("ℹ️ [BACKEND] No auth token found");
+        return false;
+      }
 
-      return !!(token && userId);
+      const response = await fetch(
+        `${this.BASE_URL}/api/users/validate-token`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const isAuth = response.ok;
+      console.log(
+        `🔐 [BACKEND] Authentication check: ${isAuth ? "PASSED" : "FAILED"}`
+      );
+      return isAuth;
     } catch (error) {
-      console.error("❌ Error checking authentication:", error);
+      console.error("❌ [BACKEND] Auth check error:", error);
       return false;
     }
   }

@@ -42,6 +42,13 @@ export class LocationService {
     value: string;
     confidence?: string;
     source?: string;
+    // 🆕 Add more detailed address fields if your GlobalGeocodingService supports them
+    street?: string;
+    city?: string;
+    region?: string;
+    country?: string;
+    postalCode?: string;
+    formattedAddress?: string;
   } | null> {
     try {
       // Use the global geocoding service for best results
@@ -56,6 +63,12 @@ export class LocationService {
           value: result.value,
           confidence: result.confidence,
           source: result.source,
+          formattedAddress: result.value,
+          street: result.street,
+          city: result.city,
+          region: result.region,
+          country: result.country,
+          postalCode: result.postalCode,
         };
       }
 
@@ -69,6 +82,7 @@ export class LocationService {
         value: fallback.value,
         confidence: fallback.confidence,
         source: fallback.source,
+        formattedAddress: fallback.value,
       };
     } catch (error) {
       console.error("❌ Error with enhanced reverse geocoding:", error);
@@ -79,6 +93,7 @@ export class LocationService {
         value: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
         confidence: "low",
         source: "fallback",
+        formattedAddress: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
       };
     }
   }

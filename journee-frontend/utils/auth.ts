@@ -1,20 +1,31 @@
 import axios, { AxiosError } from "axios";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppState } from "@/contexts/AppStateContext";
+import { BackendApiServices } from "@/services/backendApiServices";
 import {
   API_FETCH_ALL_USERS,
   API_FETCH_USER,
   API_LOGIN,
   API_REGISTER,
 } from "@/api/apiRoutes";
+import { BackgroundTaskService } from "@/components/Map/services/backgroundTaskService";
+
+let globalAuthState: AuthState | null = null;
+let globalAuthInitialized = false;
+let globalTokenValidationInProgress = false;
+
+const authListeners: Array<(state: AuthState) => void> = [];
+
+const notifyAuthListeners = (newState: AuthState) => {
+  globalAuthState = newState;
+  authListeners.forEach((listener) => listener(newState));
+};
 
 const BACKEND_URL = process.env.EXPO_PUBLIC_API_URL;
 
-// ✅ Check if we're in development mode
 const isDevelopment = process.env.NODE_ENV === "development" || __DEV__;
 
-// ✅ Logger utility that only logs in development
 const devLog = {
   log: (...args: any[]) => isDevelopment && console.log(...args),
   error: (...args: any[]) => isDevelopment && console.error(...args),
@@ -37,7 +48,6 @@ export const setAuthToken = (token: string | null) => {
   }
 };
 
-// ✅ Enhanced request interceptor with conditional logging
 apiClient.interceptors.request.use(
   (config) => {
     if (isDevelopment) {
@@ -51,7 +61,6 @@ apiClient.interceptors.request.use(
       devLog.log(`   URL: ${url}`);
       devLog.log(`   Headers:`, config.headers);
 
-      // Log request body (exclude sensitive data)
       if (config.data) {
         const logData = { ...config.data };
         if (logData.password) logData.password = "***HIDDEN***";
@@ -59,7 +68,6 @@ apiClient.interceptors.request.use(
       }
     }
 
-    // Always add metadata for timing (minimal performance impact)
     config.metadata = {
       startTime: Date.now(),
       timestamp: new Date().toISOString(),
@@ -73,7 +81,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// ✅ Enhanced response interceptor with conditional logging
 apiClient.interceptors.response.use(
   (response) => {
     if (isDevelopment) {
@@ -90,7 +97,6 @@ apiClient.interceptors.response.use(
         `   Response Size: ${JSON.stringify(response.data).length} bytes`
       );
 
-      // Log response data (limit size for readability)
       const responseDataString = JSON.stringify(response.data);
       if (responseDataString.length > 1000) {
         devLog.log(
@@ -129,18 +135,35 @@ apiClient.interceptors.response.use(
   }
 );
 
+const activeRequests = new Map<string, Promise<any>>();
 // ✅ Enhanced API functions with conditional logging
 export const authAPI = {
   login: async (email: string, password: string) => {
-    devLog.log("🔐 [AUTH] Attempting login for:", email);
-    try {
-      const response = await apiClient.post(API_LOGIN, { email, password });
-      devLog.log("✅ [AUTH] Login successful for:", email);
-      return response;
-    } catch (error) {
-      devLog.error("❌ [AUTH] Login failed for:", email);
-      throw error;
+    const requestKey = `login-${email}`;
+
+    if (activeRequests.has(requestKey)) {
+      console.log("🔄 [AUTH] Login already in progress for:", email);
+      return activeRequests.get(requestKey)!;
     }
+
+    devLog.log("🔐 [AUTH] Attempting login for:", email);
+
+    const requestPromise = apiClient
+      .post(API_LOGIN, { email, password })
+      .then((response) => {
+        devLog.log("✅ [AUTH] Login successful for:", email);
+        return response;
+      })
+      .catch((error) => {
+        devLog.error("❌ [AUTH] Login failed for:", email);
+        throw error;
+      })
+      .finally(() => {
+        activeRequests.delete(requestKey);
+      });
+
+    activeRequests.set(requestKey, requestPromise);
+    return requestPromise;
   },
 
   register: async (name: string, email: string, password: string) => {
@@ -162,6 +185,11 @@ export const authAPI = {
   logout: async () => {
     devLog.log("🚪 [AUTH] Logging out user");
     try {
+      const token = await AsyncStorage.getItem("authToken");
+      if (!token) {
+        devLog.warn("⚠️ [AUTH] No token found during logout");
+        return;
+      }
       const response = await apiClient.post("/api/users/logout");
       devLog.log("✅ [AUTH] Logout successful");
       return response;
@@ -172,15 +200,37 @@ export const authAPI = {
   },
 
   validateToken: async () => {
-    devLog.log("🔍 [AUTH] Validating token");
-    try {
-      const response = await apiClient.get("/api/users/validate-token");
-      devLog.log("✅ [AUTH] Token validation successful");
-      return response;
-    } catch (error) {
-      devLog.error("❌ [AUTH] Token validation failed");
-      throw error;
+    const requestKey = "validate-token";
+
+    // 🆕 If same request is already in progress, return existing promise
+    if (activeRequests.has(requestKey)) {
+      console.log(
+        "🔄 [AUTH] Token validation already in progress, using existing request"
+      );
+      return activeRequests.get(requestKey)!;
     }
+
+    devLog.log("🔍 [AUTH] Validating token");
+
+    const requestPromise = apiClient
+      .get("/api/users/validate-token")
+      .then((response) => {
+        devLog.log("✅ [AUTH] Token validation successful");
+        return response;
+      })
+      .catch((error) => {
+        devLog.error("❌ [AUTH] Token validation failed");
+        throw error;
+      })
+      .finally(() => {
+        // 🆕 Clean up request tracking
+        activeRequests.delete(requestKey);
+      });
+
+    // 🆕 Track the request
+    activeRequests.set(requestKey, requestPromise);
+
+    return requestPromise;
   },
 
   getProfile: async () => {
@@ -235,7 +285,6 @@ export const authAPI = {
   },
 };
 
-// ✅ Auth hook interface
 interface AuthResult {
   success: boolean;
   error?: string;
@@ -250,71 +299,128 @@ interface AuthState {
 }
 
 export const useAuth = () => {
-  const [authState, setAuthState] = useState<AuthState>({
-    isAuthenticated: false,
-    isLoading: true,
-    user: null,
-    token: null,
+  const [authState, setAuthState] = useState<AuthState>(() => {
+    return (
+      globalAuthState || {
+        isAuthenticated: false,
+        isLoading: true,
+        user: null,
+        token: null,
+      }
+    );
   });
 
-  // 🆕 Use global app state for loading and errors
   const { setLoading, setError, clearError } = useAppState();
 
-  // Initialize auth state on mount
+  const tokenValidationInProgress = useRef(false);
+  const initializationCompleted = useRef(false);
+
   useEffect(() => {
-    initializeAuth();
+    const listener = (newState: AuthState) => {
+      setAuthState(newState);
+    };
+
+    authListeners.push(listener);
+
+    return () => {
+      const index = authListeners.indexOf(listener);
+      if (index > -1) {
+        authListeners.splice(index, 1);
+      }
+    };
   }, []);
 
   const initializeAuth = async () => {
+    // 🆕 Global check to prevent multiple initializations
+    if (globalAuthInitialized || globalTokenValidationInProgress) {
+      console.log("🔄 [AUTH] Already initialized or in progress globally");
+      return;
+    }
+
+    console.log("🚀 [AUTH] Starting global auth initialization");
+
     try {
       setLoading(true, "Initializing authentication...");
+      clearError();
+      globalTokenValidationInProgress = true;
+
       const token = await AsyncStorage.getItem("authToken");
 
       if (token) {
         setAuthToken(token);
-        // Validate token with backend
+        console.log("🔍 [AUTH] Validating existing token...");
+
         try {
           const response = await authAPI.validateToken();
-          setAuthState({
+          const newState = {
             isAuthenticated: true,
             isLoading: false,
-            user: response.data.user,
+            user: response.data,
             token,
-          });
-          clearError(); // Clear any previous errors
+          };
+
+          // 🆕 Notify all listeners
+          notifyAuthListeners(newState);
+          clearError();
+          console.log("✅ [AUTH] Token validation successful");
         } catch (error) {
-          // Token is invalid, clear it
+          console.warn("⚠️ [AUTH] Token validation failed, clearing token");
           await AsyncStorage.removeItem("authToken");
           setAuthToken(null);
-          setAuthState({
+          const newState = {
             isAuthenticated: false,
             isLoading: false,
             user: null,
             token: null,
-          });
-          console.warn("Token validation failed, user needs to login again");
+          };
+          notifyAuthListeners(newState);
         }
       } else {
-        setAuthState({
+        console.log("ℹ️ [AUTH] No token found, user needs to login");
+        const newState = {
           isAuthenticated: false,
           isLoading: false,
           user: null,
           token: null,
-        });
+        };
+        notifyAuthListeners(newState);
       }
     } catch (error) {
-      devLog.error("❌ [AUTH] Failed to initialize auth:", error);
+      console.error("❌ [AUTH] Failed to initialize auth:", error);
       setError("Failed to initialize authentication");
-      setAuthState({
+      const newState = {
         isAuthenticated: false,
         isLoading: false,
         user: null,
         token: null,
-      });
+      };
+      notifyAuthListeners(newState);
     } finally {
       setLoading(false);
+      globalTokenValidationInProgress = false;
+      globalAuthInitialized = true;
     }
   };
+
+  useEffect(() => {
+    if (!globalAuthInitialized && !globalTokenValidationInProgress) {
+      initializeAuth();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authState.isAuthenticated && authState.token) {
+      // Initialize background token cache
+      BackgroundTaskService.initializeTokenCache(authState.token).catch(
+        (error) => {
+          console.error(
+            "❌ [AUTH] Failed to sync token to background service:",
+            error
+          );
+        }
+      );
+    }
+  }, [authState.isAuthenticated, authState.token]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -324,18 +430,30 @@ export const useAuth = () => {
       const response = await authAPI.login(email, password);
       const { token, user } = response.data;
 
-      // Store token
-      await AsyncStorage.setItem("authToken", token);
+      // 🆕 Store token in multiple locations for cross-service access
+      await Promise.all([
+        AsyncStorage.setItem("authToken", token),
+        AsyncStorage.setItem("backgroundAuthToken", token),
+        AsyncStorage.setItem("userToken", token),
+      ]);
+
       setAuthToken(token);
 
-      setAuthState({
+      // 🆕 Initialize background token cache
+      await BackgroundTaskService.initializeTokenCache(token);
+
+      const newState = {
         isAuthenticated: true,
         isLoading: false,
         user,
         token,
-      });
+      };
 
-      // 🆕 Return both user and token for backend integration
+      notifyAuthListeners(newState);
+      globalAuthInitialized = true;
+
+      console.log("✅ [AUTH] Login successful, tokens synced");
+
       return {
         success: true,
         user: user,
@@ -346,10 +464,11 @@ export const useAuth = () => {
         error.response?.data?.error || error.message || "Login failed";
       setError(errorMessage);
 
-      setAuthState((prev) => ({
-        ...prev,
+      const newState = {
+        ...globalAuthState!,
         isLoading: false,
-      }));
+      };
+      notifyAuthListeners(newState);
 
       return {
         success: false,
@@ -383,6 +502,8 @@ export const useAuth = () => {
         token,
       });
 
+      initializationCompleted.current = true;
+
       return { success: true, user };
     } catch (error: any) {
       const errorMessage =
@@ -407,24 +528,38 @@ export const useAuth = () => {
       try {
         await authAPI.logout();
       } catch (error) {
-        // Continue with logout even if server request fails
         devLog.warn(
           "⚠️ [AUTH] Server logout failed, continuing with local logout"
         );
       }
 
-      // Clear local storage and state
-      await AsyncStorage.removeItem("authToken");
+      // 🆕 Clear all token locations
+      await AsyncStorage.multiRemove([
+        "authToken",
+        "backgroundAuthToken",
+        "userToken",
+        "@journee/authToken",
+      ]);
+
       setAuthToken(null);
 
-      setAuthState({
+      // Clear background token cache
+      await BackgroundTaskService.clearTokenCache();
+
+      const newState = {
         isAuthenticated: false,
         isLoading: false,
         user: null,
         token: null,
-      });
+      };
+
+      globalAuthInitialized = false;
+      globalTokenValidationInProgress = false;
+      notifyAuthListeners(newState);
 
       clearError();
+      console.log("✅ [AUTH] Logout successful, all tokens cleared");
+
       return { success: true };
     } catch (error: any) {
       const errorMessage = error.message || "Logout failed";
@@ -463,19 +598,14 @@ export const useAuth = () => {
   };
 
   return {
-    // State
     isAuthenticated: authState.isAuthenticated,
     isLoading: authState.isLoading,
     user: authState.user,
     token: authState.token,
-
-    // Actions
     login,
     register,
     logout,
     updateProfile,
-
-    // Utilities
     initializeAuth,
   };
 };

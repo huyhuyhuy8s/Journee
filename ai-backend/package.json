@@ -1,16 +1,13 @@
 {
-  "name": "back-end-example",
+  "name": "journee-ai-backend",
   "version": "1.0.0",
-  "description": "example of journee back end application",
+  "description": "AI-powered backend for Journee app",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
-    "build:ui": "rm -rf dist && cd ../frontend && npm run build && cp -r dist ../backend",
-    "deploy:full": "npm run build:ui && git add . && git commit -m uibuild && git push",
-    "start": "cross-env NODE_ENV=production node index.js",
-    "dev": "cross-env NODE_ENV=development node --watch index.js",
-    "lint": "eslint .",
-    "test": "NODE_ENV=test node --test",
-    "start:test": "NODE_ENV=test node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "node test.js"
   },
   "keywords": [
     "journee"
@@ -27,7 +24,9 @@
     "groq-sdk": "^0.36.0",
     "jsonwebtoken": "latest",
     "mongoose": "latest",
-    "openai": "^6.9.1"
+    "nodemon": "^3.1.11",
+    "openai": "^6.9.1",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@eslint/js": "latest",
@@ -36,5 +35,8 @@
     "eslint-plugin-react": "latest",
     "globals": "latest",
     "supertest": "latest"
+  },
+  "engines": {
+    "node": ">=22.21.0"
   }
 }
