@@ -1,8 +1,9 @@
+// app/_layout.tsx
 import tamaguiConfig from "@/tamagui.config";
 import { ToastProvider } from "@tamagui/toast";
 import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StatusBar } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { PortalProvider, TamaguiProvider } from "tamagui";
@@ -17,42 +18,85 @@ SplashScreen.preventAutoHideAsync();
 // Create a separate component that uses the theme context
 const AppContent = () => {
   const theme = useThemeValue();
-  console.log("theme", theme);
 
   return (
     <SafeAreaProvider>
       <TamaguiProvider config={tamaguiConfig} defaultTheme={theme}>
         <AppStateProvider>
-          <PortalProvider>
-            <ToastProvider>
-              <StatusBar />
-              <Stack>
-                <Stack.Screen
-                  name="(tabs)"
-                  options={{
-                    title: "Home",
-                    headerShown: false,
-                  }}
-                />
-                <Stack.Screen
-                  name="login"
-                  options={{
-                    title: "Login",
-                    headerShown: false,
-                  }}
-                />
-                <Stack.Screen
-                  name="register"
-                  options={{
-                    title: "Register",
-                    headerShown: false,
-                  }}
-                />
-              </Stack>
-              <GlobalLoading />
-              <GlobalError />
-            </ToastProvider>
-          </PortalProvider>
+          <UserContextProvider>
+            <PortalProvider>
+              <ToastProvider>
+                <StatusBar />
+                <Stack>
+                  <Stack.Screen
+                    name="(tabs)"
+                    options={{
+                      title: "Home",
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="login"
+                    options={{
+                      title: "Login",
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="register"
+                    options={{
+                      title: "Register",
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="feed"
+                    options={{
+                      title: "feed",
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="NewPost"
+                    options={{
+                      title: "feed",
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="ChatScreen"
+                    options={{
+                      title: "ChatScreen",
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="setting"
+                    options={{
+                      title: "setting",
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="updateinfo"
+                    options={{
+                      title: "updateinfo",
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen
+                    name="mywall"
+                    options={{
+                      title: "mywall",
+                      headerShown: false,
+                    }}
+                  />
+                </Stack>
+                <GlobalLoading />
+                <GlobalError />
+              </ToastProvider>
+            </PortalProvider>
+          </UserContextProvider>
         </AppStateProvider>
       </TamaguiProvider>
     </SafeAreaProvider>
@@ -60,26 +104,34 @@ const AppContent = () => {
 };
 
 export default () => {
+  const renderCount = useRef(0);
+  const [isReady, setIsReady] = useState(false);
+
+  renderCount.current += 1;
+
   const [fontLoaded] = useFonts({
     Inter: require("@tamagui/font-inter/otf/Inter-Medium.otf"),
     InterBold: require("@tamagui/font-inter/otf/Inter-Bold.otf"),
   });
 
   useEffect(() => {
-    if (fontLoaded) {
+    if (fontLoaded && !isReady) {
+      console.log(
+        `🚀 App initialization complete (${renderCount.current} renders)`
+      );
+      setIsReady(true);
       SplashScreen.hideAsync();
     }
-  }, [fontLoaded]);
+  }, [fontLoaded, isReady]);
 
-  if (!fontLoaded) {
+  // 🆕 Single loading state instead of multiple renders
+  if (!isReady) {
     return null;
   }
 
   return (
-    <UserContextProvider>
-      <ThemeContextProvider>
-        <AppContent />
-      </ThemeContextProvider>
-    </UserContextProvider>
+    <ThemeContextProvider>
+      <AppContent />
+    </ThemeContextProvider>
   );
 };

@@ -16,6 +16,7 @@ const _Layout = () => {
 
   return (
     <ExpoTabs
+      initialRouteName="index"
       screenOptions={{
         tabBarShowLabel: false,
         tabBarItemStyle: {
@@ -39,6 +40,20 @@ const _Layout = () => {
       }}
     >
       <ExpoTabs.Screen
+        name="index"
+        options={{
+          href: null,
+          title: "Index",
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
+            <Map
+              size={Platform.OS === "android" ? "$1.5" : "$2"}
+              color={focused ? theme.accent8 : theme.color1}
+            />
+          ),
+        }}
+      />
+      <ExpoTabs.Screen
         name="map"
         options={{
           title: "Map",
@@ -46,7 +61,7 @@ const _Layout = () => {
           tabBarIcon: ({ focused }) => (
             <Map
               size={Platform.OS === "android" ? "$1.5" : "$2"}
-              color={focused ? theme.accent1 : theme.color1}
+              color={focused ? theme.accent8 : theme.color1}
             />
           ),
         }}
@@ -59,7 +74,7 @@ const _Layout = () => {
           tabBarIcon: ({ focused }) => (
             <Newspaper
               size={Platform.OS === "android" ? "$1.5" : "$2"}
-              color={focused ? theme.accent1 : theme.color1}
+              color={focused ? theme.accent8 : theme.color1}
             />
           ),
         }}
@@ -72,7 +87,7 @@ const _Layout = () => {
           tabBarIcon: ({ focused }) => (
             <MessageSquare
               size={Platform.OS === "android" ? "$1.5" : "$2"}
-              color={focused ? theme.accent1 : theme.color1}
+              color={focused ? theme.accent8 : theme.color1}
             />
           ),
         }}
@@ -85,7 +100,7 @@ const _Layout = () => {
           tabBarIcon: ({ focused }) => (
             <Contact
               size={Platform.OS === "android" ? "$1.5" : "$2"}
-              color={focused ? theme.accent1 : theme.color1}
+              color={focused ? theme.accent8 : theme.color1}
             />
           ),
         }}
@@ -98,7 +113,7 @@ const _Layout = () => {
           tabBarIcon: ({ focused }) => (
             <User
               size={Platform.OS === "android" ? "$1.5" : "$2"}
-              color={focused ? theme.accent1 : theme.color1}
+              color={focused ? theme.accent8 : theme.color1}
             />
           ),
         }}

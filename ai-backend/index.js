@@ -1,164 +1,227 @@
-// Back-end use CommonJS
-
-require('dotenv').config();    // load .env
+require('dotenv').config()
 const express = require('express');
+const cors = require('cors');
+const { validateCaptionRequest } = require('./middleware/validation');
+const { generateStatus } = require('./ai/statusAI');
+const { generateCaptions } = require('./ai/captionAI');
+const { swaggerUi, openapiDocument, swaggerOptions } = require('./config/swagger');
+
 const app = express();
-const Groq = require("groq-sdk"); 
 
-app.use(express.json());
-
-// --- Cấu hình Groq Client ---
-const GROQ_API_KEY = process.env.GROQ_API_KEY;
-if (!GROQ_API_KEY) {
-  console.warn("Warning: GROQ_API_KEY is not set. Groq calls will fail.");
-}
-
-const groq = new Groq({ apiKey: GROQ_API_KEY });
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:8081', 'https://journee-1gt3.onrender.com'],
+  credentials: true
+}));
 
 
-// --- Hàm callGroq đã sửa Model (Sử dụng llama-3.1-8b-instant) ---
-async function callGroq(prompt, opts = {}) {
+// 🆕 Body parsing with error handling
+app.use(express.json({
+  limit: '10mb',
+  type: 'application/json'
+}));
+
+app.use(express.urlencoded({
+  extended: true,
+  limit: '10mb'
+}));
+
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument, swaggerOptions));
+
+app.use((req, res, next) => {
+  console.log(`📨 [${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log(`🔍 Headers:`, {
+    'content-type': req.headers['content-type'],
+    'content-length': req.headers['content-length'],
+    'user-agent': req.headers['user-agent']?.substring(0, 50) || 'unknown'
+  });
+  next();
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    service: 'Journee AI Backend',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    ai_services: {
+      caption_generator: 'ready',
+      groq_integration: !!process.env.GROQ_API_KEY ? 'configured' : 'not_configured'
+    }
+  });
+});
+
+// 🆕 Caption generation with validation
+app.post('/api/captions/generate', validateCaptionRequest, async (req, res) => {
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      // Đã cập nhật model từ llama3-8b-8192 sang llama-3.1-8b-instant
-      model: opts.model || "llama-3.1-8b-instant", 
-      max_tokens: opts.max_tokens || 80, 
-      temperature: opts.temperature ?? 0.8,
+    const { description = '', options = {} } = req.body;
+
+    const captionOptions = {
+      provider: options.provider || 'local',
+      lang: options.lang || 'vi',
+      count: Math.min(options.count || 5, 10),
+      model: options.model || 'llama-3.1-8b-instant',
+      max_tokens: options.max_tokens || 120,
+      temperature: options.temperature ?? 0.8
+    };
+
+    const startTime = Date.now();
+    const captions = await generateCaptions(description, captionOptions);
+    const processingTime = Date.now() - startTime;
+
+    res.json({
+      success: true,
+      data: {
+        captions,
+        metadata: {
+          provider: captionOptions.provider,
+          processingTime,
+          inputLength: description.length,
+          language: captionOptions.lang,
+          count: captions.length
+        }
+      }
     });
-    
-    return chatCompletion.choices[0]?.message?.content || "";
+
   } catch (error) {
-    console.error("Groq SDK Error:", error.message || error);
-    throw new Error(`Groq API failed: ${error.message || error}`);
+    console.error('❌ [CAPTION] Error:', error);
+    res.status(500).json({
+      error: 'Caption generation failed',
+      code: 'GENERATION_ERROR',
+      details: { message: error.message }
+    });
   }
-}
-
-// Demo variable
-let message = 'Hello world';
-
-// -------------------- ROUTES -------------------- //
-app.get('/', (req, res) => {
-  res.send(`<h1>${message}</h1>`);
 });
 
-app.get('/api/message', (req, res) => {
-  res.json({ message });
-});
-
-
-// -------------------- AI CAPTION API (Groq) -------------------- //
-app.post('/api/caption', async (req, res) => {
+app.post('/api/status/generate', validateCaptionRequest, async (req, res) => {
   try {
-    const { description } = req.body;
-    if (!description) return res.status(400).json({ error: "Description is required." });
+    const { description = '', options = {} } = req.body;
 
-    // SỬ DỤNG PROMPT MỚI cho Caption
-    const prompt = `
-Generate 5 short captions (max 10 words each) for the post: "${description}".
-ONLY return a single, valid JSON object with the key "captions". DO NOT include any introductory text or Markdown code fences (e.g., \`\`\`json).
-Example: {"captions": ["Chill và nắng", "Yêu khoảnh khắc này"]}
-    `.trim();
+    const statusOptions = {
+      provider: options.provider || 'local',
+      lang: options.lang || 'vi',
+      count: Math.min(options.count || 5, 10),
+      category: options.category || null, // auto-detect if not provided
+      includeHashtags: options.includeHashtags || false
+    };
 
-    const raw = await callGroq(prompt, { max_tokens: 200 });
-    
-    // LOGIC PARSING MỚI: TẬP TRUNG TÌM VÀ TRÍCH XUẤT KHỐI JSON
-    let parsed = null;
-    
-    try {
-        // Biểu thức chính quy tìm khối JSON, bỏ qua Markdown code block
-        const jsonMatch = raw.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            // Cố gắng parse chuỗi JSON đã trích xuất
-            parsed = JSON.parse(jsonMatch[0]);
+    console.log('📱 [STATUS] Processing request:', {
+      description: description ? `"${description.substring(0, 50)}..."` : 'empty',
+      options: JSON.stringify(statusOptions)
+    });
+
+    const startTime = Date.now();
+    const result = await generateStatus(description, statusOptions);
+    const processingTime = Date.now() - startTime;
+
+    console.log('✅ [STATUS] Generated successfully:', {
+      count: Array.isArray(result) ? result.length : result.status?.length || 0,
+      processingTime: `${processingTime}ms`,
+      hasHashtags: !Array.isArray(result)
+    });
+
+    // Handle different response formats
+    const response = {
+      success: true,
+      data: Array.isArray(result) ? {
+        status: result,
+        metadata: {
+          language: statusOptions.lang,
+          count: result.length,
+          processingTime,
+          category: 'general',
+          hasHashtags: false
         }
-    } catch (e) { 
-        console.warn("Failed to parse JSON for caption, trying fallback.", e.message);
-    }
+      } : {
+        ...result,
+        metadata: {
+          ...result.metadata,
+          processingTime
+        }
+      }
+    };
 
-    if (parsed && Array.isArray(parsed.captions)) {
-        // Nếu trích xuất JSON thành công và có mảng captions
-        return res.json({ captions: parsed.captions.slice(0, 5) });
-    }
+    res.json(response);
 
-    // FALLBACK LOGIC: Nếu không phải JSON hợp lệ, chia theo dòng/dấu phẩy (giống code cũ)
-    const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    
-    // Lọc bỏ các dòng có vẻ là Markdown hoặc bắt đầu JSON không hoàn chỉnh
-    const validLines = lines.filter(line => !line.startsWith('```') && !line.startsWith('{') && !line.startsWith('['));
-    
-    if (validLines.length >= 5) {
-        return res.json({ captions: validLines.slice(0, 5) });
-    }
-    
-    // Fallback cuối cùng
-    return res.json({ captions: [raw].slice(0, 5) });
+  } catch (error) {
+    console.error('❌ [STATUS] Generation failed:', {
+      error: error.message,
+      stack: error.stack,
+      body: req.body
+    });
 
-  } catch (err) {
-    console.error("Caption Error (Groq):", err);
-    return res.status(500).json({ error: "AI Caption failed" });
+    res.status(500).json({
+      error: 'Status generation failed',
+      code: 'GENERATION_ERROR',
+      details: { message: error.message }
+    });
   }
 });
 
-// -------------------- AI STATUS API (Groq) -------------------- //
-app.post('/api/status', async (req, res) => {
+app.post('/api/hashtags/generate', validateCaptionRequest, async (req, res) => {
   try {
-    const { location, mood } = req.body;
-    if (!location || !mood) return res.status(400).json({ error: "Location and mood are required." });
+    const { description = '', options = {} } = req.body;
+    const { generateHashtags, extractKeywords, detectStatusCategory } = require('./ai/statusAI');
 
-    // SỬ DỤNG PROMPT MỚI cho Status
-    const prompt = `
-Generate 5 short social statuses (<12 words) for a map app based on the location and mood.
-INPUT: Location: ${location}, Mood: ${mood}
-ONLY return a single, valid JSON object with the key "statuses". DO NOT include any introductory or explanatory text or Markdown code fences (e.g., \`\`\`json).
-Example: {"statuses": ["Vui quá!", "Yên bình tại đây."]}
-    `.trim();
+    const keywords = extractKeywords(description, 5);
+    const category = options.category || detectStatusCategory(keywords, description);
+    const lang = options.lang || 'vi';
 
-    const raw = await callGroq(prompt, { max_tokens: 160 });
-    
-    // LOGIC PARSING MỚI: TẬP TRUNG TÌM VÀ TRÍCH XUẤT KHỐI JSON
-    let parsed = null;
-    
-    try {
-        // Biểu thức chính quy tìm khối JSON, bỏ qua Markdown code block
-        const jsonMatch = raw.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            // Cố gắng parse chuỗi JSON đã trích xuất
-            parsed = JSON.parse(jsonMatch[0]);
+    const hashtags = generateHashtags(keywords, category, lang);
+
+    res.json({
+      success: true,
+      data: {
+        hashtags,
+        category,
+        keywords,
+        metadata: {
+          language: lang,
+          count: hashtags.length
         }
-    } catch (e) { 
-        console.warn("Failed to parse JSON for status, trying fallback.", e.message);
-    }
+      }
+    });
 
-    if (parsed && Array.isArray(parsed.statuses)) {
-        // Nếu trích xuất JSON thành công và có mảng statuses
-        return res.json({ statuses: parsed.statuses.slice(0, 5) });
-    }
-
-    // FALLBACK LOGIC: Nếu không phải JSON hợp lệ, chia theo dòng/dấu phẩy (giống code cũ)
-    const lines = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    
-    // Lọc bỏ các dòng có vẻ là Markdown hoặc bắt đầu JSON không hoàn chỉnh
-    const validLines = lines.filter(line => !line.startsWith('```') && !line.startsWith('{') && !line.startsWith('['));
-    
-    if (validLines.length >= 5) {
-        return res.json({ statuses: validLines.slice(0, 5) });
-    }
-    
-    // Fallback cuối cùng
-    return res.json({ statuses: [raw].slice(0, 5) });
-
-  } catch (err) {
-    console.error("Status Error (Groq):", err);
-    return res.status(500).json({ error: "AI Status failed" });
+  } catch (error) {
+    console.error('❌ [HASHTAG] Generation failed:', error);
+    res.status(500).json({
+      error: 'Hashtag generation failed',
+      code: 'GENERATION_ERROR',
+      details: { message: error.message }
+    });
   }
 });
 
-// -------------------- START SERVER -------------------- //
-const PORT = 3001;
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+// Test endpoint
+app.post('/api/test', (req, res) => {
+  res.json({
+    success: true,
+    received: {
+      body: req.body,
+      hasDescription: 'description' in (req.body || {}),
+      bodyType: typeof req.body,
+      contentType: req.headers['content-type']
+    }
+  });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🤖 Journee AI Backend running on port ${PORT}`);
+  console.log(`📚 API Documentation: http://localhost:${PORT}/api/docs`);
+  console.log(`🔧 Body parsing: JSON + URL-encoded`);
+  console.log(`🎯 Caption endpoint: POST /api/captions/generate`);
+  console.log(`📱 Status endpoint: POST /api/status/generate`);
+  console.log(`🏷️ Hashtag endpoint: POST /api/hashtags/generate`);
+  console.log(`🧪 Test endpoint: POST /api/test`);
+});
+
+// 🆕 Graceful error handling
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:', error);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+});
