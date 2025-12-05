@@ -40,6 +40,12 @@ interface BestGeocodingResult {
   value: string;
   source: "expo" | "openmaps" | "combined";
   confidence: "high" | "medium" | "low";
+  street?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  postalCode?: string;
+  formattedAddress?: string;
 }
 
 interface CacheEntry {
@@ -338,12 +344,6 @@ export class GlobalGeocodingService {
 
       const url = `${this.OPEN_MAPS_BASE_URL}/geocode/reverse?latlng=${latitude},${longitude}&apiKey=${this.OPEN_MAPS_API_KEY}`;
 
-      console.log(
-        `🌐 Fetching from OpenMaps: ${latitude.toFixed(6)}, ${longitude.toFixed(
-          6
-        )}`
-      );
-
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -376,12 +376,6 @@ export class GlobalGeocodingService {
       const formattedAddress =
         bestResult.formatted_address || "Unknown Address";
 
-      console.log("✅ OpenMaps result:", {
-        place: placeName,
-        address: formattedAddress,
-        types: bestResult.types,
-      });
-
       return {
         place: placeName,
         value: formattedAddress,
@@ -402,10 +396,6 @@ export class GlobalGeocodingService {
     longitude: number
   ): Promise<ExpoGeocodingResult | null> {
     try {
-      console.log(
-        `📱 Fetching from Expo: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-      );
-
       const result = await Location.reverseGeocodeAsync({
         latitude,
         longitude,
@@ -425,11 +415,6 @@ export class GlobalGeocodingService {
           location.formattedAddress ||
           `${location.street || ""} ${location.city || ""}`.trim() ||
           "Unknown Address";
-
-        console.log("✅ Expo result:", {
-          place: placeName,
-          address: formattedAddress,
-        });
 
         return {
           place: placeName,
@@ -566,6 +551,13 @@ export class GlobalGeocodingService {
       return {
         ...expoResult,
         confidence: "medium",
+        // 🆕 Add missing fields with fallback values
+        formattedAddress: expoResult.value,
+        street: undefined,
+        city: undefined,
+        region: undefined,
+        country: undefined,
+        postalCode: undefined,
       };
     }
 
@@ -573,6 +565,13 @@ export class GlobalGeocodingService {
       return {
         ...openMapsResult,
         confidence: "medium",
+        // 🆕 Add missing fields with fallback values
+        formattedAddress: openMapsResult.value,
+        street: undefined,
+        city: undefined,
+        region: undefined,
+        country: undefined,
+        postalCode: undefined,
       };
     }
 
@@ -602,6 +601,13 @@ export class GlobalGeocodingService {
           value: openMapsResult.value,
           source: "openmaps",
           confidence: "high",
+          // 🆕 Add missing fields
+          formattedAddress: openMapsResult.value,
+          street: undefined,
+          city: undefined,
+          region: undefined,
+          country: undefined,
+          postalCode: undefined,
         };
       }
 
@@ -615,6 +621,13 @@ export class GlobalGeocodingService {
           value: expoResult.value, // Use Expo's address as it's usually more complete
           source: "combined",
           confidence: "high",
+          // 🆕 Add missing fields
+          formattedAddress: expoResult.value,
+          street: undefined,
+          city: undefined,
+          region: undefined,
+          country: undefined,
+          postalCode: undefined,
         };
       }
 
@@ -628,6 +641,13 @@ export class GlobalGeocodingService {
           value: expoResult.value,
           source: "combined",
           confidence: "medium",
+          // 🆕 Add missing fields
+          formattedAddress: expoResult.value,
+          street: undefined,
+          city: undefined,
+          region: undefined,
+          country: undefined,
+          postalCode: undefined,
         };
       }
 
@@ -635,6 +655,13 @@ export class GlobalGeocodingService {
       return {
         ...expoResult,
         confidence: "medium",
+        // 🆕 Add missing fields
+        formattedAddress: expoResult.value,
+        street: undefined,
+        city: undefined,
+        region: undefined,
+        country: undefined,
+        postalCode: undefined,
       };
     }
 
@@ -661,9 +688,6 @@ export class GlobalGeocodingService {
     );
   }
 
-  /**
-   * Fallback method that just returns basic coordinates
-   */
   static getFallbackResult(
     latitude: number,
     longitude: number
@@ -673,6 +697,13 @@ export class GlobalGeocodingService {
       value: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
       source: "combined",
       confidence: "low",
+      // 🆕 Add missing fields
+      formattedAddress: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+      street: undefined,
+      city: undefined,
+      region: undefined,
+      country: undefined,
+      postalCode: undefined,
     };
   }
 

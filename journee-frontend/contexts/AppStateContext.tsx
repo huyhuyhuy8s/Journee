@@ -23,6 +23,7 @@ const AppStateContext = createContext<AppStateContextType | undefined>(
 export const useAppState = (): AppStateContextType => {
   const context = useContext(AppStateContext);
   if (!context) {
+    console.error("❌ useAppState: No context found!"); // 🆕 Add debug
     throw new Error("useAppState must be used within an AppStateProvider");
   }
   return context;
@@ -53,7 +54,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
     setAppState((prev) => ({
       ...prev,
       error,
-      isLoading: false, // Stop loading when error occurs
+      isLoading: false,
     }));
   };
 
