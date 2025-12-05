@@ -21,7 +21,9 @@ import {
 const JWT_SECRET = config.JWT_SECRET;
 
 const generateToken = (userId: string, userRole: ERole) => {
-  return jwt.sign({ userId, userRole }, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign({ userId: userId, userRole: userRole }, JWT_SECRET, {
+    expiresIn: "7d",
+  });
 };
 
 const checkIsUserExist = async (userId: string) => {
