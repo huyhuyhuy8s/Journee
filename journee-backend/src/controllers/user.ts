@@ -67,7 +67,25 @@ const blacklistCreation = async (userId: string) => {
   await adminDb.collection("userBlacklists").add(userBlacklist);
 };
 
-const userController: Record<string, any> = {
+const cleanUpUserSettings = async (userId: string) => {
+  const settingsSnap = await adminDb
+    .collection("userSettings")
+    .where("userId", "==", userId)
+    .get();
+  settingsSnap.forEach(async (doc) => {
+    await adminDb.collection("userSettings").doc(doc.id).delete();
+  });
+
+  const userBlacklistSnap = await adminDb
+    .collection("userBlacklists")
+    .where("userId", "==", userId)
+    .get();
+  userBlacklistSnap.forEach(async (doc) => {
+    await adminDb.collection("userBlacklists").doc(doc.id).delete();
+  });
+};
+
+const userController = {
   createUser: async (req: Request, res: Response) => {
     try {
       const { name, email, password, avatar } = req.body;
@@ -263,6 +281,8 @@ const userController: Record<string, any> = {
 
     await userDocRef.delete();
 
+    await cleanUpUserSettings(userId);
+
     return res.apiResponse({
       status: 200,
       message: "User deleted successfully",
@@ -448,4 +468,4 @@ const userController: Record<string, any> = {
   },
 };
 
-export { userController, JWT_SECRET };
+export { userController };

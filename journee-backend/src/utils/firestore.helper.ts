@@ -2,7 +2,7 @@ import { adminDb } from "@/config/firebase";
 import { DocumentSnapshot, QuerySnapshot } from "firebase-admin/firestore";
 import { Request, Response } from "express";
 
-interface FetchDocumentResult<T> {
+export interface FetchDocumentResult<T> {
   success: boolean;
   data?: T;
   doc?: DocumentSnapshot;
@@ -311,10 +311,6 @@ export const validateRequiredFields = (
     const value = body[field];
     return value === undefined || value === null || value === "";
   });
-
-  console.log("Validating required fields:", fields);
-  console.log("Request body:", body);
-  console.log("Missing fields:", missingFields);
 
   if (missingFields.length > 0) {
     res.apiError({

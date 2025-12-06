@@ -1,48 +1,39 @@
-import { admin, clientDb } from "@/config/firebase";
-import { adminDb } from "@/config/firebase";
 import { IEntry, IJournal, ILocation } from "@/types/global";
-import {
-  fetchDocument,
-  fetchDocuments,
-  fetchDocumentWithRelation,
-  validateRequiredFields,
-} from "@/utils/firestore.helper";
+import { validateRequiredFields } from "@/utils/firestore.helper";
 import { Request, Response } from "express";
 import { GeoPoint, Timestamp } from "firebase-admin/firestore";
+import { JournalService } from "@/services/journal.service";
+import { EntryService } from "@/services/entry.service";
 import _ from "lodash";
 
 const journalController = {
   getAllJournals: async (req: Request, res: Response) => {
     try {
-      const journalsResult = await fetchDocuments<IJournal>(
-        "journals",
-        res,
-        "Journals"
-      );
-      if (!journalsResult.success) return;
+      const userId = req.user!.id;
+      const journalsResult = await JournalService.getUserJournals(userId, res);
 
-      const entriesResult = await fetchDocuments<IEntry>(
-        "entries",
-        res,
-        "Entries"
-      );
-      if (!entriesResult.success) return;
+      if (!journalsResult.success || !journalsResult.data) return;
 
-      const allJournals = journalsResult.data!.map((journal) => ({
-        ...journal,
-        createdAt: (journal.createdAt as any).toDate(),
-        updatedAt: (journal.updatedAt as any).toDate(),
-        entries: entriesResult.data!.filter(
-          (entry) => entry.journalId === journal.id
-        ),
-      }));
+      const journalsWithEntries = await Promise.all(
+        journalsResult.data.map(async (journal) => {
+          const entriesResult = await EntryService.getEntriesByJournalId(
+            journal.id!
+          );
+          return {
+            ...journal,
+            createdAt: (journal.createdAt as Timestamp).toDate(),
+            updatedAt: (journal.updatedAt as Timestamp).toDate(),
+            entries: entriesResult.success ? entriesResult.data : [],
+          };
+        })
+      );
 
       return res.apiResponse(
         { message: "Journals fetched successfully" },
-        { journals: allJournals }
+        { journals: journalsWithEntries }
       );
     } catch (error) {
-      console.log(error);
+      console.error("Get all journals error:", error);
       return res.apiError({
         status: 500,
         message: "Failed to fetch journals",
@@ -54,34 +45,33 @@ const journalController = {
   getJournalById: async (req: Request, res: Response) => {
     try {
       const journalId = req.params.id;
+      const userId = req.user!.id;
 
-      const result = await fetchDocumentWithRelation<IJournal, IEntry>(
-        "journals",
-        journalId,
-        "entries",
-        "journalId",
-        res,
-        "Journal",
-        "Entries"
-      );
+      const result = await JournalService.getJournalWithEntries(journalId, res);
 
-      if (!result.success) return;
+      if (!result.success || !result.journal) return;
 
-      const journal: IJournal = {
-        id: journalId,
-        userId: result.parent!.userId,
-        name: result.parent!.name,
-        createdAt: (result.parent!.createdAt as any).toDate(),
-        updatedAt: (result.parent!.updatedAt as any).toDate(),
-        entries: result.children || [],
-      };
+      if (result.journal.userId !== userId) {
+        return res.apiError({
+          status: 403,
+          message: "Forbidden",
+          error: "Access denied",
+        });
+      }
 
       return res.apiResponse(
         { message: "Journal retrieved successfully" },
-        { journal }
+        {
+          journal: {
+            ...result.journal,
+            createdAt: (result.journal.createdAt as Timestamp).toDate(),
+            updatedAt: (result.journal.updatedAt as Timestamp).toDate(),
+            entries: result.entries || [],
+          },
+        }
       );
     } catch (error) {
-      console.log(error);
+      console.error("Get journal by ID error:", error);
       return res.apiError({
         status: 500,
         message: "Failed to retrieve journal",
@@ -92,25 +82,20 @@ const journalController = {
 
   createJournal: async (req: Request, res: Response) => {
     try {
-      const userId = req.user?.id;
+      const userId = req.user!.id;
+
       if (!validateRequiredFields(req.body, ["name"], res)) return;
+
       const { name } = req.body;
 
-      const newJournal = {
-        userId,
-        name,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      const journalRef = await adminDb.collection("journals").add(newJournal);
+      const journal = await JournalService.createJournal(userId, name);
 
       return res.apiResponse(
         { message: "Journal created successfully" },
-        { journal: { id: journalRef.id, ...newJournal } }
+        { journal }
       );
     } catch (error) {
-      console.log(error);
+      console.error("Create journal error:", error);
       return res.apiError({
         status: 500,
         message: "Failed to create journal",
@@ -123,19 +108,18 @@ const journalController = {
     try {
       const journalId = req.params.id;
       const userId = req.user!.id;
+
       if (!validateRequiredFields(req.body, ["name"], res)) return;
+
       const { name } = req.body;
 
-      const result = await adminDb.collection("journals").doc(journalId).get();
-      if (!result.exists) {
-        return res.apiError({
-          status: 404,
-          message: "Journal not found",
-          error: "Not Found",
-        });
-      }
+      const isOwner = await JournalService.isJournalOwner(
+        journalId,
+        userId,
+        res
+      );
 
-      if (result.data()?.userId !== userId) {
+      if (!isOwner) {
         return res.apiError({
           status: 403,
           message: "Forbidden",
@@ -143,17 +127,14 @@ const journalController = {
         });
       }
 
-      await adminDb.collection("journals").doc(journalId).update({
-        name,
-        updatedAt: new Date(),
-      });
+      await JournalService.updateJournal(journalId, name);
 
       return res.apiResponse(
         { message: "Journal updated successfully" },
         { journal: { id: journalId, name } }
       );
     } catch (error) {
-      console.log(error);
+      console.error("Update journal error:", error);
       return res.apiError({
         status: 500,
         message: "Failed to update journal",
@@ -167,8 +148,13 @@ const journalController = {
       const journalId = req.params.id;
       const userId = req.user!.id;
 
-      const result = await adminDb.collection("journals").doc(journalId).get();
-      if (result.data()?.userId !== userId) {
+      const isOwner = await JournalService.isJournalOwner(
+        journalId,
+        userId,
+        res
+      );
+
+      if (!isOwner) {
         return res.apiError({
           status: 403,
           message: "Forbidden",
@@ -176,19 +162,11 @@ const journalController = {
         });
       }
 
-      if (!result.exists) {
-        return res.apiError({
-          status: 404,
-          message: "Journal not found",
-          error: "Not Found",
-        });
-      }
-
-      await adminDb.collection("journals").doc(journalId).delete();
+      await JournalService.deleteJournal(journalId);
 
       return res.apiResponse({ message: "Journal deleted successfully" }, null);
     } catch (error) {
-      console.log(error);
+      console.error("Delete journal error:", error);
       return res.apiError({
         status: 500,
         message: "Failed to delete journal",
@@ -201,32 +179,18 @@ const journalController = {
     try {
       const journalId = req.params.id;
       const userId = req.user!.id;
+
       if (!validateRequiredFields(req.body, ["name", "location"], res)) return;
-      const {
-        name,
-        location,
-        images,
-        thought,
-      }: {
-        name: string;
-        location: ILocation;
-        images?: string[];
-        thought?: string;
-      } = req.body;
 
-      const journalResult = await adminDb
-        .collection("journals")
-        .doc(journalId)
-        .get();
-      if (!journalResult.exists) {
-        return res.apiError({
-          status: 404,
-          message: "Journal not found",
-          error: "Not Found",
-        });
-      }
+      const { name, location, images, thought } = req.body;
 
-      if (journalResult.data()?.userId !== userId) {
+      const isOwner = await JournalService.isJournalOwner(
+        journalId,
+        userId,
+        res
+      );
+
+      if (!isOwner) {
         return res.apiError({
           status: 403,
           message: "Forbidden",
@@ -234,35 +198,35 @@ const journalController = {
         });
       }
 
-      const newEntry: Partial<IEntry> = {
-        name,
-        location: {
+      const newGeoPoint = new GeoPoint(
+        location.coordinate.latitude,
+        location.coordinate.longitude
+      );
+
+      const entry = await EntryService.createEntry(
+        journalId,
+        newGeoPoint,
+        {
           place: location.place,
           street: location.street,
           city: location.city,
           region: location.region,
           country: location.country,
           value: location.value,
-          coordinate: new GeoPoint(
-            location.coordinate.latitude,
-            location.coordinate.longitude
-          ),
         },
-        journalId,
-        images: images && Array.isArray(images) ? images : [],
-        thought,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      };
-
-      const entryRef = await adminDb.collection("entries").add(newEntry);
+        {
+          name,
+          images: images && Array.isArray(images) ? images : [],
+          thought,
+        }
+      );
 
       return res.apiResponse(
         { message: "Journal entry added successfully" },
-        { entry: { id: entryRef.id, ...newEntry } }
+        { entry }
       );
     } catch (error) {
-      console.log(error);
+      console.error("Add journal entry error:", error);
       return res.apiError({
         status: 500,
         message: "Failed to add journal entry",
@@ -273,9 +237,9 @@ const journalController = {
 
   updateJournalEntry: async (req: Request, res: Response) => {
     try {
-      const journalId = req.params.id;
-      const entryId = req.params.entryId;
+      const { id: journalId, entryId } = req.params;
       const userId = req.user!.id;
+
       if (!req.body || _.isEmpty(req.body)) {
         return res.apiError({
           status: 400,
@@ -283,48 +247,16 @@ const journalController = {
           error: "No fields to update",
         });
       }
+
       const { name, location, images, thought } = req.body;
 
-      if (name && !validateRequiredFields(req.body, ["name"], res)) return;
-      if (location && !validateRequiredFields(req.body, ["location"], res))
-        return;
-      if (images && !validateRequiredFields(req.body, ["images"], res)) return;
-      if (thought && !validateRequiredFields(req.body, ["thought"], res))
-        return;
+      const isOwner = await JournalService.isJournalOwner(
+        journalId,
+        userId,
+        res
+      );
 
-      const journalResult = await adminDb
-        .collection("journals")
-        .doc(journalId)
-        .get();
-      if (!journalResult.exists) {
-        return res.apiError({
-          status: 404,
-          message: "Journal not found",
-          error: "Not Found",
-        });
-      }
-
-      const entryResult = await adminDb
-        .collection("entries")
-        .doc(entryId)
-        .get();
-      if (!entryResult.exists) {
-        return res.apiError({
-          status: 404,
-          message: "Entry not found",
-          error: "Not Found",
-        });
-      }
-
-      if (entryResult.data()?.journalId !== journalId) {
-        return res.apiError({
-          status: 400,
-          message: "Bad Request",
-          error: "Entry does not belong to this journal",
-        });
-      }
-
-      if (userId !== journalResult.data()?.userId) {
+      if (!isOwner) {
         return res.apiError({
           status: 403,
           message: "Forbidden",
@@ -332,13 +264,31 @@ const journalController = {
         });
       }
 
-      const updatedEntry: Partial<IEntry> = {
-        updatedAt: new Date() as any,
-      };
+      const entryResult = await EntryService.getEntryById(entryId, res);
+      if (!entryResult.success || !entryResult.data) return;
 
-      if (name) updatedEntry.name = name;
-      if (location)
-        updatedEntry.location = {
+      const belongsToJournal = await EntryService.verifyEntryBelongsToJournal(
+        entryId,
+        journalId,
+        res
+      );
+
+      if (!belongsToJournal) {
+        return res.apiError({
+          status: 400,
+          message: "Bad Request",
+          error: "Entry does not belong to this journal",
+        });
+      }
+
+      const updates: any = {};
+
+      if (name) updates.name = name;
+      if (images && _.isArray(images)) updates.images = images;
+      if (thought !== undefined) updates.thought = thought;
+
+      if (location) {
+        updates.location = {
           place: location.place,
           street: location.street,
           city: location.city,
@@ -350,17 +300,16 @@ const journalController = {
             location.coordinate.longitude
           ),
         };
-      if (images && _.isArray(images)) updatedEntry.images = images;
-      if (thought) updatedEntry.thought = thought;
+      }
 
-      await adminDb.collection("entries").doc(entryId).update(updatedEntry);
+      await EntryService.updateEntry(entryId, updates);
 
       return res.apiResponse(
         { message: "Journal entry updated successfully" },
-        { entry: { id: entryId, ...entryResult.data, ...updatedEntry } }
+        { entry: { id: entryId, ...entryResult.data, ...updates } }
       );
     } catch (error) {
-      console.log(error);
+      console.error("Update journal entry error:", error);
       return res.apiError({
         status: 500,
         message: "Failed to update journal entry",
@@ -371,35 +320,16 @@ const journalController = {
 
   deleteJournalEntry: async (req: Request, res: Response) => {
     try {
-      const journalId = req.params.id;
-      const entryId = req.params.entryId;
+      const { id: journalId, entryId } = req.params;
       const userId = req.user!.id;
 
-      const journalResult = await fetchDocument(
-        "journals",
+      const isOwner = await JournalService.isJournalOwner(
         journalId,
-        res,
-        "Journal"
+        userId,
+        res
       );
-      if (!journalResult.success) return;
 
-      const entryResult = await fetchDocument<IEntry>(
-        "entries",
-        entryId,
-        res,
-        "Entry"
-      );
-      if (!entryResult.success) return;
-
-      if (entryResult.data!.journalId !== journalId) {
-        return res.apiError({
-          status: 400,
-          message: "Bad Request",
-          error: "Entry does not belong to this journal",
-        });
-      }
-
-      if (userId !== journalResult.data!.userId) {
+      if (!isOwner) {
         return res.apiError({
           status: 403,
           message: "Forbidden",
@@ -407,17 +337,95 @@ const journalController = {
         });
       }
 
-      await adminDb.collection("entries").doc(entryId).delete();
+      const belongsToJournal = await EntryService.verifyEntryBelongsToJournal(
+        entryId,
+        journalId,
+        res
+      );
+
+      if (!belongsToJournal) {
+        return res.apiError({
+          status: 400,
+          message: "Bad Request",
+          error: "Entry does not belong to this journal",
+        });
+      }
+
+      await EntryService.deleteEntry(entryId);
 
       return res.apiResponse(
         { message: "Journal entry deleted successfully" },
         null
       );
     } catch (error) {
-      console.log(error);
+      console.error("Delete journal entry error:", error);
       return res.apiError({
         status: 500,
         message: "Failed to delete journal entry",
+        error: String(error),
+      });
+    }
+  },
+
+  updateEntryTimes: async (req: Request, res: Response) => {
+    try {
+      const { id: journalId, entryId } = req.params;
+      const userId = req.user!.id;
+      if (
+        !validateRequiredFields(req.body, ["arrivalTime", "departureTime"], res)
+      )
+        return;
+      const { arrivalTime, departureTime } = req.body;
+
+      const isOwner = await JournalService.isJournalOwner(
+        journalId,
+        userId,
+        res
+      );
+
+      if (!isOwner) {
+        return res.apiError({
+          status: 403,
+          message: "Forbidden",
+          error: "Access denied",
+        });
+      }
+
+      const belongsToJournal = await EntryService.verifyEntryBelongsToJournal(
+        entryId,
+        journalId,
+        res
+      );
+
+      if (!belongsToJournal) {
+        return res.apiError({
+          status: 400,
+          message: "Entry does not belong to this journal",
+          error: "Bad Request",
+        });
+      }
+
+      const times: any = {};
+
+      if (arrivalTime) {
+        times.arrivalTime = Timestamp.fromDate(new Date(arrivalTime));
+      }
+
+      if (departureTime) {
+        times.departureTime = Timestamp.fromDate(new Date(departureTime));
+      }
+
+      await EntryService.updateEntryTimes(entryId, times);
+
+      return res.apiResponse(
+        { message: "Entry times updated successfully" },
+        null
+      );
+    } catch (error) {
+      console.error("Update entry times error:", error);
+      return res.apiError({
+        status: 500,
+        message: "Failed to update entry times",
         error: String(error),
       });
     }

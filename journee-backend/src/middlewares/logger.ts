@@ -3,28 +3,23 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { Request, Response, NextFunction } from "express";
 
-// Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Create logs directory if it doesn't exist
 const logsDir = path.join(__dirname, "../logs");
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
-// Helper function to get current timestamp
 const getTimestamp = (): string => {
   return new Date().toISOString();
 };
 
-// Helper function to get log filename based on current date
 const getLogFileName = (type: string = "access"): string => {
   const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
   return path.join(logsDir, `${type}-${date}.log`);
 };
 
-// Helper function to write to log file
 const writeToLogFile = (message: string, type: string = "access"): void => {
   const logFile = getLogFileName(type);
   const logEntry = `${getTimestamp()} - ${message}\n`;
@@ -36,7 +31,6 @@ const writeToLogFile = (message: string, type: string = "access"): void => {
   });
 };
 
-// Request logger middleware
 const requestLogger = (
   req: Request,
   res: Response,
@@ -44,7 +38,6 @@ const requestLogger = (
 ): void => {
   const start = Date.now();
 
-  // Log request details
   const requestInfo = {
     method: req.method,
     url: req.originalUrl,
@@ -53,12 +46,10 @@ const requestLogger = (
     timestamp: getTimestamp(),
   };
 
-  // Log request
   const requestMessage = `${requestInfo.method} ${requestInfo.url} - IP: ${requestInfo.ip} - UserAgent: ${requestInfo.userAgent}`;
   console.log(`📥 [REQUEST] ${requestMessage}`);
   writeToLogFile(`[REQUEST] ${requestMessage}`);
 
-  // Capture response details
   const originalSend = res.send;
   res.send = function (data: any): Response {
     const duration = Date.now() - start;
@@ -68,14 +59,11 @@ const requestLogger = (
       contentLength: data ? Buffer.byteLength(data, "utf8") : 0,
     };
 
-    // Log response
     const responseMessage = `${requestInfo.method} ${requestInfo.url} - ${responseInfo.statusCode} - ${responseInfo.duration} - ${responseInfo.contentLength} bytes`;
 
-    // Color code based on status
     let logLevel = "📤";
     if (res.statusCode >= 400) {
       logLevel = "❌";
-      // Also log errors to error log file
       writeToLogFile(`[ERROR] ${responseMessage}`, "error");
     } else if (res.statusCode >= 300) {
       logLevel = "📝";
@@ -92,7 +80,6 @@ const requestLogger = (
   next();
 };
 
-// Error logger middleware
 const errorLogger = (
   err: Error,
   req: Request,
@@ -108,7 +95,6 @@ const errorLogger = (
     timestamp: getTimestamp(),
   };
 
-  // Log error to console
   console.error(
     `💥 [ERROR] ${errorInfo.method} ${errorInfo.url} - ${errorInfo.message}`
   );
@@ -121,7 +107,6 @@ const errorLogger = (
   next(err);
 };
 
-// Authentication logger (for login/logout events)
 const authLogger = {
   logLogin: (
     email: string,
@@ -161,7 +146,6 @@ const authLogger = {
   },
 };
 
-// Cleanup old log files (optional)
 const cleanupOldLogs = (daysToKeep: number = 30): void => {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);

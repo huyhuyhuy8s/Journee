@@ -1,5 +1,11 @@
 import { Request } from "express";
-import { firestore } from "firebase-admin";
+import { GeoPoint, Timestamp } from "firebase-admin/firestore";
+
+export enum EUserLocationState {
+  FAST_MOVING = "FAST_MOVING",
+  SLOW_MOVING = "SLOW_MOVING",
+  STATIONARY = "STATIONARY",
+}
 
 export interface IUser {
   id: string;
@@ -8,9 +14,18 @@ export interface IUser {
   password: string;
   avatar: string;
   roleId: ERole;
-  createdAt: firestore.Timestamp;
-  updatedAt: firestore.Timestamp;
-  lastLogin: firestore.Timestamp;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  lastLogin: Timestamp | Date;
+}
+
+export interface IUserLocationState {
+  id?: string;
+  userId: string;
+  currentState: EUserLocationState;
+  lastLocation: ILocation;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 export enum ERole {
@@ -41,45 +56,47 @@ export interface IUserSetting {
   userId: string;
   visibility: TVisibilitySetting;
   action: TActionSetting;
-  createdAt: firestore.Timestamp;
-  updatedAt: firestore.Timestamp;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 export interface IBlacklist {
   userId: string;
   blockedUsers: string[];
-  createdAt: firestore.Timestamp;
-  updatedAt: firestore.Timestamp;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 export interface IJournal {
   id: string;
-  name: string;
   userId: string;
-  createdAt: firestore.Timestamp;
-  updatedAt: firestore.Timestamp;
+  name: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
   entries?: IEntry[];
 }
 
 export interface IEntry {
-  id: string;
+  id?: string;
   journalId: string;
-  name: string;
-  images?: string[];
-  thought: string;
+  name?: string;
   location: ILocation;
-  createdAt: firestore.Timestamp;
-  updatedAt: firestore.Timestamp;
+  images: string[];
+  thought?: string;
+  arrivalTime: Timestamp | Date;
+  departureTime?: Timestamp | Date;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 export interface ILocation {
-  place: string;
-  street: string;
-  city: string;
-  region: string;
-  country: string;
-  value: string;
-  coordinate: firestore.GeoPoint;
+  place?: string;
+  street?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  value?: string;
+  coordinate: GeoPoint;
 }
 
 export interface IPost {
@@ -88,8 +105,8 @@ export interface IPost {
   caption: string;
   images?: string[];
   journal?: IJournal[];
-  createdAt: firestore.Timestamp;
-  updatedAt: firestore.Timestamp;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 export interface IComment {
@@ -98,7 +115,7 @@ export interface IComment {
   postId: string;
   context?: string;
   image?: string;
-  createdAt: firestore.Timestamp;
+  createdAt: Timestamp | Date;
 }
 
 export type TReactionType = "like" | "love" | "haha" | "wow" | "sad" | "angry";
@@ -108,8 +125,8 @@ export interface IReaction {
   userId: string;
   postId: string;
   reactionType: TReactionType;
-  createdAt: firestore.Timestamp;
-  updatedAt: firestore.Timestamp;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
 export type TMessageType =
@@ -124,14 +141,14 @@ export interface IMessage {
   senderId: string;
   receiverId: string;
   context: TMessageType;
-  createdAt: firestore.Timestamp;
+  createdAt: Timestamp | Date;
 }
 
 export interface IBlacklistToken {
   token: string;
   userId: string;
-  blacklistedAt: firestore.Timestamp;
-  expiresAt: firestore.Timestamp;
+  blacklistedAt: Timestamp | Date;
+  expiresAt: Timestamp | Date;
 }
 
 export interface UserPayload {
@@ -152,7 +169,7 @@ export interface LocationData {
   userId: string;
   latitude: number;
   longitude: number;
-  timestamp: Date;
+  timestamp: Timestamp | Date;
   accuracy?: number;
   speed?: number | null;
   movementState?: "STATIONARY" | "SLOW_MOVING" | "FAST_MOVING" | "UNKNOWN";

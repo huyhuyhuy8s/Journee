@@ -14,6 +14,7 @@ import { startTokenCleanupJob } from "@/jobs/tokenCleanup";
 import userRoutes from "@/routes/user";
 import postRoutes from "@/routes/post";
 import journalRoutes from "@/routes/journal";
+import locationRoutes from "@/routes/location";
 import { config } from "@/config/env";
 import { responseFormatter } from "@/middlewares/responseFormatter";
 
@@ -34,6 +35,7 @@ app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(openapiDocument));
 app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/journals", journalRoutes);
+app.use("/api/location", locationRoutes);
 
 app.get("/health", (req: Request, res: Response) => {
   return res.json({

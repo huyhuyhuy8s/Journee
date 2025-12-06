@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { JWT_SECRET } from "@/controllers/user";
 import { JWTService } from "@/services/jwt.service";
 import { ERole } from "@/types";
+import { config } from "@/config/env";
 
+const JWT_SECRET = config.JWT_SECRET;
 interface JWTPayload {
   userId: string;
   userRole: ERole;

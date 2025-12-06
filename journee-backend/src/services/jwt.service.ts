@@ -1,52 +1,31 @@
 import jwt from "jsonwebtoken";
 import { config } from "@/config/env";
 import { adminDb } from "@/config/firebase";
-import { IBlacklistToken, UserPayload } from "@/types/global";
+import { ERole, IBlacklistToken, UserPayload } from "@/types/global";
 import { Timestamp } from "firebase-admin/firestore";
 
-export class JWTService {
-  /**
-   * Generate JWT token
-   */
-  static generateToken(userId: string, email: string): string {
+export const JWTService = {
+  generateToken: (userId: string, role: ERole): string => {
     const payload: UserPayload = {
       id: userId,
-      email,
+      role,
     };
-
-    // return jwt.sign(payload,config.JWT_SECRET, {
-    //   expiresIn: config.JWT_EXPIRE,
-    // });
-
     return jwt.sign(payload, config.JWT_SECRET, {
       expiresIn: config.JWT_EXPIRE,
     } as jwt.SignOptions);
-  }
+  },
 
-  /**
-   * Verify JWT token
-   */
-  static verifyToken(token: string): UserPayload {
+  verifyToken: (token: string): UserPayload => {
     try {
       return jwt.verify(token, config.JWT_SECRET) as UserPayload;
     } catch (error) {
       throw new Error("Invalid token");
     }
-  }
+  },
 
-  /**
-   * Decode JWT token without verification
-   */
-  static decodeToken(token: string): any {
-    return jwt.decode(token);
-  }
-
-  /**
-   * Blacklist a token
-   */
-  static async blacklistToken(token: string, userId: string): Promise<void> {
+  blacklistToken: async (token: string, userId: string): Promise<void> => {
     try {
-      const decoded = this.decodeToken(token);
+      const decoded = jwt.decode(token) as jwt.JwtPayload;
 
       if (!decoded || !decoded.exp) {
         throw new Error("Invalid token");
@@ -67,12 +46,9 @@ export class JWTService {
       console.error("Error blacklisting token:", error);
       throw error;
     }
-  }
+  },
 
-  /**
-   * Check if token is blacklisted
-   */
-  static async isTokenBlacklisted(token: string): Promise<boolean> {
+  isTokenBlacklisted: async (token: string): Promise<boolean> => {
     try {
       const snapshot = await adminDb
         .collection("blacklistedTokens")
@@ -85,12 +61,9 @@ export class JWTService {
       console.error("Error checking token blacklist:", error);
       return false;
     }
-  }
+  },
 
-  /**
-   * Clean up expired blacklisted tokens
-   */
-  static async cleanupExpiredTokens(): Promise<number> {
+  cleanupExpiredTokens: async (): Promise<number> => {
     try {
       const now = new Date();
 
@@ -116,5 +89,5 @@ export class JWTService {
       console.error("Error cleaning up expired tokens:", error);
       return 0;
     }
-  }
-}
+  },
+};

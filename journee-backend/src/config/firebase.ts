@@ -8,10 +8,7 @@ import { join } from "path";
 
 let serviceAccountKey: ServiceAccount | undefined;
 try {
-  const saPath = join(
-    process.cwd(),
-    "../../etc/secrets/firebase-service-account.json"
-  );
+  const saPath = join(process.cwd(), "etc/secrets/serviceAccountKey.json");
   if (existsSync(saPath)) {
     serviceAccountKey = JSON.parse(readFileSync(saPath, "utf-8"));
   } else {
